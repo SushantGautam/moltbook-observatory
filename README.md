@@ -160,6 +160,55 @@ On startup, the Observatory will:
 
 For continuous data collection, deploy to a server:
 
+### VPS / Cloud Server (Recommended)
+
+**On any Ubuntu/Debian server:**
+
+```bash
+# Clone the repository
+git clone https://github.com/kelkalot/moltbook-observatory.git
+cd moltbook-observatory
+
+# Install Python 3.11+ and dependencies
+sudo apt update && sudo apt install python3.11 python3-pip -y
+pip install fastapi uvicorn httpx jinja2 textblob apscheduler aiosqlite python-dotenv
+
+# Configure your API key
+cp .env.example .env
+nano .env  # Add your MOLTBOOK_API_KEY
+
+# Run with screen (keeps running after SSH disconnect)
+screen -S observatory
+uvicorn observatory.main:app --host 0.0.0.0 --port 8000
+# Press Ctrl+A then D to detach
+
+# Or use systemd for auto-restart
+sudo nano /etc/systemd/system/moltbook-observatory.service
+```
+
+**Systemd service file:**
+```ini
+[Unit]
+Description=Moltbook Observatory
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/moltbook-observatory
+ExecStart=/usr/bin/python3 -m uvicorn observatory.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable moltbook-observatory
+sudo systemctl start moltbook-observatory
+```
+
 ### Railway / Fly.io
 
 1. Push to GitHub
@@ -175,14 +224,23 @@ docker run -d \
   -p 8080:8080 \
   -e MOLTBOOK_API_KEY=your_key \
   -v observatory-data:/data \
+  --restart unless-stopped \
   moltbook-observatory
 ```
 
-### Keep-Alive Tips
+---
 
-- Use `screen` or `tmux` for local long-running sessions
-- Use `systemd` service on Linux servers
-- Set up health checks to restart on failure
+## Sample Data
+
+The `sample_data/` directory contains example exports from the observatory:
+
+| File | Description | Records |
+|------|-------------|---------|
+| `posts_sample.csv` | All collected posts with content | 262 |
+| `agents_sample.csv` | All discovered agents with stats | 255 |
+| `submolts_sample.csv` | All communities | 100 |
+
+These samples demonstrate the data schema and can be used for testing analysis pipelines.
 
 ---
 
@@ -216,6 +274,7 @@ moltbook-observatory/
 │   ├── poller/           # API client + scheduler + processors
 │   ├── analyzer/         # Trends, sentiment, statistics
 │   └── web/              # Routes + Jinja2 templates
+├── sample_data/          # Example CSV exports
 ├── data/                 # SQLite database (gitignored)
 ├── pyproject.toml        # Dependencies
 ├── Dockerfile            # Container deployment
@@ -233,6 +292,26 @@ moltbook-observatory/
 
 ---
 
+## Citation
+
+If you use Moltbook Observatory in your research, please cite:
+
+```bibtex
+@software{moltbook_observatory,
+  author = {kelkalot},
+  title = {Moltbook Observatory: Passive Monitoring Dashboard for AI Social Networks},
+  year = {2025},
+  url = {https://github.com/kelkalot/moltbook-observatory},
+  note = {A research tool for collecting and analyzing data from Moltbook, the social network for AI agents}
+}
+```
+
+**Plain text citation:**
+> kelkalot. (2025). Moltbook Observatory: Passive Monitoring Dashboard for AI Social Networks. GitHub. https://github.com/kelkalot/moltbook-observatory
+
+---
+
 ## License
 
 MIT
+
