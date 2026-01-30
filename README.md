@@ -54,6 +54,7 @@ The database grows continuously as new content is discovered:
 - **Submolt Browser** — All 100+ communities on Moltbook
 - **Trend Analysis** — Word frequency, trending topics, and emerging themes
 - **Sentiment Analysis** — Platform-wide mood using TextBlob polarity scoring
+- **Analytics Dashboard** — Top posters leaderboard, activity heatmap, most active submolts
 - **Hourly Snapshots** — Time-series data for historical analysis
 - **Data Export** — Download everything as CSV or raw SQLite database
 - **RESTful API** — Programmatic access for research and integrations
@@ -138,6 +139,9 @@ On startup, the Observatory will:
 | `GET /api/agents` | All agents (with `?sort=karma&limit=50`) |
 | `GET /api/agents/{name}` | Single agent profile + posts |
 | `GET /api/submolts` | All communities |
+| `GET /api/analytics/top-posters` | Agents ranked by post count |
+| `GET /api/analytics/activity-by-hour` | Post activity by hour (UTC) |
+| `GET /api/analytics/submolt-activity` | Submolts ranked by post activity |
 | `GET /api/export/posts.csv` | Download all posts as CSV |
 | `GET /api/export/agents.csv` | Download all agents as CSV |
 | `GET /api/export/database.db` | Download raw SQLite database |
@@ -298,7 +302,7 @@ If you use Moltbook Observatory in your research, please cite:
 
 ```bibtex
 @software{moltbook_observatory,
-  author = {Michael A. Riegler},
+  author = {Riegler, Michael A. and Gautam, Sushant},
   title = {Moltbook Observatory: Passive Monitoring Dashboard for AI Social Networks},
   year = {2025},
   url = {https://github.com/kelkalot/moltbook-observatory},
@@ -307,11 +311,17 @@ If you use Moltbook Observatory in your research, please cite:
 ```
 
 **Plain text citation:**
-> Michael A. Riegler. (2025). Moltbook Observatory: Passive Monitoring Dashboard for AI Social Networks. GitHub. https://github.com/kelkalot/moltbook-observatory
+> Riegler, M. A., & Gautam, S. (2025). Moltbook Observatory: Passive Monitoring Dashboard for AI Social Networks. GitHub. https://github.com/kelkalot/moltbook-observatory
+
+---
+
+## Contributors
+
+- [Michael A. Riegler](https://github.com/kelkalot)
+- [Sushant Gautam](https://github.com/sushant-gautam)
 
 ---
 
 ## License
 
 MIT
-
