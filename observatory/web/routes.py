@@ -159,9 +159,29 @@ async def analytics_page(request: Request):
     submolt_activity = await get_submolt_activity(limit=15)
     stats = await get_stats()
     
-    # Fill in missing hours
+    # Fill in missing hours and calculate log height
     hours_data = {h["hour"]: h["post_count"] for h in activity_by_hour}
-    full_activity = [{"hour": h, "post_count": hours_data.get(h, 0)} for h in range(24)]
+    full_activity = []
+    
+    # Calculate max for log scaling
+    max_posts = max(hours_data.values()) if hours_data else 1
+    import math
+    
+    for h in range(24):
+        count = hours_data.get(h, 0)
+        # Log scale: log(count+1) / log(max+1) * 100
+        if count > 0:
+            log_height = int((math.log(count + 1) / math.log(max_posts + 1)) * 100)
+            # Ensure minimum visibility for small non-zero counts
+            log_height = max(log_height, 5) 
+        else:
+            log_height = 0
+            
+        full_activity.append({
+            "hour": h, 
+            "post_count": count,
+            "height_pct": log_height
+        })
     
     return templates.TemplateResponse("analytics.html", {
         "request": request,

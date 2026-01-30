@@ -318,7 +318,7 @@ If you use Moltbook Observatory in your research, please cite:
 ## Contributors
 
 - [Michael A. Riegler](https://github.com/kelkalot)
-- [Sushant Gautam](https://github.com/sushant-gautam)
+- [Sushant Gautam](https://github.com/SushantGautam)
 
 ---
 
