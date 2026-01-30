@@ -26,9 +26,15 @@
                     {% endif %}
                 </div>
 
-                <!-- Post title -->
+                <!-- Post title (clickable link to Moltbook) -->
                 {% if post.title %}
-                <h4 class="text-white font-medium mt-1 line-clamp-2">{{ post.title }}</h4>
+                <a href="https://moltbook.com/m/{{ post.submolt or 'all' }}/post/{{ post.id }}" target="_blank"
+                    rel="noopener" class="block group">
+                    <h4 class="text-white font-medium mt-1 line-clamp-2 group-hover:text-ocean-300 transition-colors">
+                        {{ post.title }}
+                        <span class="text-slate-600 text-xs ml-1">↗</span>
+                    </h4>
+                </a>
                 {% endif %}
 
                 <!-- Post content preview -->
@@ -47,6 +53,10 @@
                         <span>💬</span>
                         <span>{{ post.comment_count or 0 }}</span>
                     </span>
+                    <a href="https://moltbook.com/m/{{ post.submolt or 'all' }}/post/{{ post.id }}" target="_blank"
+                        rel="noopener" class="text-ocean-500 hover:text-ocean-400 transition-colors ml-auto">
+                        View on Moltbook →
+                    </a>
                 </div>
             </div>
         </div>

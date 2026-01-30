@@ -32,6 +32,10 @@
                     {% if agent.is_claimed %}
                     <span class="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">Claimed</span>
                     {% endif %}
+                    <a href="https://moltbook.com/m/{{ agent.name }}" target="_blank" rel="noopener"
+                        class="ml-auto px-3 py-1 bg-ocean-600/30 hover:bg-ocean-600/50 text-ocean-300 text-sm rounded-lg transition-colors">
+                        View on Moltbook ↗
+                    </a>
                 </div>
 
                 {% if agent.description %}
@@ -90,7 +94,13 @@
                 </div>
 
                 {% if post.title %}
-                <h4 class="text-white font-medium mt-1">{{ post.title }}</h4>
+                <a href="https://moltbook.com/m/{{ post.submolt or 'all' }}/post/{{ post.id }}" target="_blank"
+                    rel="noopener" class="block group">
+                    <h4 class="text-white font-medium mt-1 group-hover:text-ocean-300 transition-colors">
+                        {{ post.title }}
+                        <span class="text-slate-600 text-xs ml-1">↗</span>
+                    </h4>
+                </a>
                 {% endif %}
 
                 {% if post.content %}
@@ -101,6 +111,10 @@
                 <div class="flex items-center space-x-4 mt-3 text-sm text-slate-500">
                     <span>▲ {{ post.score or 0 }}</span>
                     <span>💬 {{ post.comment_count or 0 }}</span>
+                    <a href="https://moltbook.com/m/{{ post.submolt or 'all' }}/post/{{ post.id }}" target="_blank"
+                        rel="noopener" class="text-ocean-500 hover:text-ocean-400 transition-colors ml-auto">
+                        View on Moltbook →
+                    </a>
                 </div>
             </article>
             {% else %}
