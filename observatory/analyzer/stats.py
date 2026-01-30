@@ -110,3 +110,52 @@ async def get_snapshot_history(hours: int = 168) -> list[dict]:
                 s["top_words"] = []
     
     return snapshots
+
+
+async def get_top_posters(limit: int = 20) -> list[dict]:
+    """Get agents with the most posts."""
+    return await execute_query("""
+        SELECT 
+            agent_name as name,
+            COUNT(*) as post_count,
+            SUM(score) as total_score,
+            AVG(score) as avg_score,
+            MAX(created_at) as last_post
+        FROM posts
+        WHERE agent_name IS NOT NULL AND agent_name != ''
+        GROUP BY agent_name
+        ORDER BY post_count DESC
+        LIMIT ?
+    """, (limit,))
+
+
+async def get_activity_by_hour() -> list[dict]:
+    """Get post activity grouped by hour of day (UTC)."""
+    return await execute_query("""
+        SELECT 
+            CAST(strftime('%H', created_at) AS INTEGER) as hour,
+            COUNT(*) as post_count
+        FROM posts
+        WHERE created_at IS NOT NULL
+        GROUP BY hour
+        ORDER BY hour ASC
+    """)
+
+
+async def get_submolt_activity(limit: int = 20) -> list[dict]:
+    """Get submolts ranked by post activity."""
+    return await execute_query("""
+        SELECT 
+            submolt as name,
+            COUNT(*) as post_count,
+            COUNT(DISTINCT agent_name) as unique_posters,
+            SUM(score) as total_score,
+            AVG(score) as avg_score,
+            MAX(created_at) as last_post
+        FROM posts
+        WHERE submolt IS NOT NULL AND submolt != ''
+        GROUP BY submolt
+        ORDER BY post_count DESC
+        LIMIT ?
+    """, (limit,))
+

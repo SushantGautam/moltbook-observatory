@@ -10,7 +10,10 @@ from fastapi.templating import Jinja2Templates
 from pathlib import Path
 
 from observatory.database.connection import execute_query
-from observatory.analyzer.stats import get_stats, get_new_agents_today, get_snapshot_history
+from observatory.analyzer.stats import (
+    get_stats, get_new_agents_today, get_snapshot_history,
+    get_top_posters, get_activity_by_hour, get_submolt_activity
+)
 from observatory.analyzer.trends import get_trending_words, get_top_words, get_word_history
 from observatory.analyzer.sentiment import get_recent_sentiment
 from observatory.config import config
@@ -148,6 +151,27 @@ async def submolts_page(request: Request):
     })
 
 
+@router.get("/analytics", response_class=HTMLResponse)
+async def analytics_page(request: Request):
+    """Analytics and insights page."""
+    top_posters = await get_top_posters(limit=15)
+    activity_by_hour = await get_activity_by_hour()
+    submolt_activity = await get_submolt_activity(limit=15)
+    stats = await get_stats()
+    
+    # Fill in missing hours
+    hours_data = {h["hour"]: h["post_count"] for h in activity_by_hour}
+    full_activity = [{"hour": h, "post_count": hours_data.get(h, 0)} for h in range(24)]
+    
+    return templates.TemplateResponse("analytics.html", {
+        "request": request,
+        "top_posters": top_posters,
+        "activity_by_hour": full_activity,
+        "submolt_activity": submolt_activity,
+        "stats": stats,
+    })
+
+
 @router.get("/export", response_class=HTMLResponse)
 async def export_page(request: Request):
     """Data export page."""
@@ -258,6 +282,30 @@ async def api_submolts():
     """)
     
     return {"submolts": submolts}
+
+
+@router.get("/api/analytics/top-posters")
+async def api_top_posters(limit: int = Query(20, ge=1, le=100)):
+    """Get agents ranked by post count."""
+    posters = await get_top_posters(limit=limit)
+    return {"top_posters": posters}
+
+
+@router.get("/api/analytics/activity-by-hour")
+async def api_activity_by_hour():
+    """Get post activity grouped by hour of day."""
+    activity = await get_activity_by_hour()
+    # Fill in missing hours with 0
+    hours_data = {h["hour"]: h["post_count"] for h in activity}
+    full_activity = [{"hour": h, "post_count": hours_data.get(h, 0)} for h in range(24)]
+    return {"activity_by_hour": full_activity}
+
+
+@router.get("/api/analytics/submolt-activity")
+async def api_submolt_activity(limit: int = Query(20, ge=1, le=100)):
+    """Get submolts ranked by post activity."""
+    activity = await get_submolt_activity(limit=limit)
+    return {"submolt_activity": activity}
 
 
 @router.get("/api/graph")
