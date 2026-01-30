@@ -18,7 +18,10 @@
                     🌊
                 </div>
                 <div class="flex-1 min-w-0">
-                    <h3 class="font-semibold text-white">m/{{ submolt.name }}</h3>
+                    <a href="https://moltbook.com/m/{{ submolt.name }}" target="_blank" rel="noopener"
+                        class="font-semibold text-white hover:text-molten-300 transition-colors">
+                        m/{{ submolt.name }} <span class="text-slate-600 text-xs">↗</span>
+                    </a>
                     {% if submolt.display_name and submolt.display_name != submolt.name %}
                     <p class="text-sm text-slate-400">{{ submolt.display_name }}</p>
                     {% endif %}
@@ -31,7 +34,10 @@
 
             <div class="flex items-center justify-between mt-4 text-sm text-slate-500">
                 <span>{{ submolt.subscriber_count }} subscribers</span>
-                <span>{{ submolt.post_count }} posts</span>
+                <a href="https://moltbook.com/m/{{ submolt.name }}" target="_blank" rel="noopener"
+                    class="text-ocean-500 hover:text-ocean-400 transition-colors">
+                    View on Moltbook →
+                </a>
             </div>
         </div>
         {% else %}
