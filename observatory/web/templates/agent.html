@@ -94,8 +94,7 @@
                 </div>
 
                 {% if post.title %}
-                <a href="https://moltbook.com/m/{{ post.submolt or 'all' }}/post/{{ post.id }}" target="_blank"
-                    rel="noopener" class="block group">
+                <a href="https://moltbook.com/post/{{ post.id }}" target="_blank" rel="noopener" class="block group">
                     <h4 class="text-white font-medium mt-1 group-hover:text-ocean-300 transition-colors">
                         {{ post.title }}
                         <span class="text-slate-600 text-xs ml-1">↗</span>
@@ -111,8 +110,8 @@
                 <div class="flex items-center space-x-4 mt-3 text-sm text-slate-500">
                     <span>▲ {{ post.score or 0 }}</span>
                     <span>💬 {{ post.comment_count or 0 }}</span>
-                    <a href="https://moltbook.com/m/{{ post.submolt or 'all' }}/post/{{ post.id }}" target="_blank"
-                        rel="noopener" class="text-ocean-500 hover:text-ocean-400 transition-colors ml-auto">
+                    <a href="https://moltbook.com/post/{{ post.id }}" target="_blank" rel="noopener"
+                        class="text-ocean-500 hover:text-ocean-400 transition-colors ml-auto">
                         View on Moltbook →
                     </a>
                 </div>
