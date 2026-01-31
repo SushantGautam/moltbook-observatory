@@ -17,6 +17,13 @@ async def get_db() -> aiosqlite.Connection:
         _db.row_factory = aiosqlite.Row
         # Enable foreign keys
         await _db.execute("PRAGMA foreign_keys = ON")
+        # Performance optimizations
+        await _db.execute("PRAGMA journal_mode = WAL")
+        await _db.execute("PRAGMA synchronous = NORMAL")
+        await _db.execute("PRAGMA cache_size = -64000")  # 64MB cache
+        await _db.execute("PRAGMA temp_store = MEMORY")
+        await _db.execute("PRAGMA mmap_size = 30000000")  # 30MB mmap
+        await _db.execute("PRAGMA page_size = 4096")
     return _db
 
 

@@ -5,6 +5,10 @@ from collections import Counter
 from datetime import datetime, timedelta
 from observatory.database.connection import get_db, execute_query
 
+# Cache trending words
+_trends_cache = {}
+TRENDS_CACHE_TTL = 600  # 10 minutes
+
 # Common stop words to ignore
 STOP_WORDS = {
     'the', 'a', 'an', 'is', 'are', 'was', 'were', 'i', 'you', 'we', 'they',
@@ -72,32 +76,48 @@ async def update_word_frequency() -> None:
 
 async def get_trending_words(hours: int = 24, limit: int = 10) -> list[dict]:
     """
-    Get trending words comparing current period to previous period.
+    Get trending words comparing current period to previous period with caching.
     
     Returns list of {word, count, previous_count, change_percent}
     """
+    # Check cache first
+    cache_key = f"trends_{hours}_{limit}"
     now = datetime.utcnow()
+    if cache_key in _trends_cache:
+        cached_result, cached_time = _trends_cache[cache_key]
+        if (now - cached_time).total_seconds() < TRENDS_CACHE_TTL:
+            return cached_result
+    
     current_start = (now - timedelta(hours=hours)).isoformat()
     previous_start = (now - timedelta(hours=hours * 2)).isoformat()
     previous_end = current_start
     
-    # Get current period counts
+    # Get current period counts - only top 100 to reduce processing
     current = await execute_query("""
         SELECT word, SUM(count) as total
         FROM word_frequency
         WHERE hour >= ?
         GROUP BY word
         ORDER BY total DESC
-        LIMIT 50
+        LIMIT 100
     """, (current_start,))
     
-    # Get previous period counts
-    previous = await execute_query("""
+    # Get previous period counts - only for words we found in current period
+    if not current:
+        result = []
+        _trends_cache[cache_key] = (result, now)
+        return result
+    
+    current_words = [w['word'] for w in current]
+    
+    # Use IN clause to fetch only relevant previous data
+    placeholders = ','.join(['?' for _ in current_words])
+    previous = await execute_query(f"""
         SELECT word, SUM(count) as total
         FROM word_frequency
-        WHERE hour >= ? AND hour < ?
+        WHERE hour >= ? AND hour < ? AND word IN ({placeholders})
         GROUP BY word
-    """, (previous_start, previous_end))
+    """, (previous_start, previous_end, *current_words))
     
     previous_counts = {p['word']: p['total'] for p in previous}
     
@@ -122,7 +142,9 @@ async def get_trending_words(hours: int = 24, limit: int = 10) -> list[dict]:
     
     # Sort by change percentage
     trends.sort(key=lambda x: x['change_percent'], reverse=True)
-    return trends[:limit]
+    result = trends[:limit]
+    _trends_cache[cache_key] = (result, now)
+    return result
 
 
 async def get_top_words(hours: int = 24, limit: int = 20) -> list[dict]:

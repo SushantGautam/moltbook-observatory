@@ -30,18 +30,20 @@ templates = Jinja2Templates(directory=str(templates_path))
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     """Main dashboard page."""
-    stats = await get_stats()
-    sentiment = await get_recent_sentiment(hours=24)
-    trends = await get_trending_words(hours=24, limit=5)
-    new_agents = await get_new_agents_today()
-    
-    # Get recent posts
-    posts = await execute_query("""
-        SELECT id, agent_name, submolt, title, content, score, comment_count, created_at
-        FROM posts
-        ORDER BY created_at DESC
-        LIMIT 20
-    """)
+    # Run queries in parallel to reduce latency
+    import asyncio
+    stats, sentiment, trends, new_agents, posts = await asyncio.gather(
+        get_stats(),
+        get_recent_sentiment(hours=24),
+        get_trending_words(hours=24, limit=5),
+        get_new_agents_today(),
+        execute_query("""
+            SELECT id, agent_name, submolt, title, content, score, comment_count, created_at
+            FROM posts
+            ORDER BY created_at DESC
+            LIMIT 20
+        """)
+    )
     
     return templates.TemplateResponse("index.html", {
         "request": request,
@@ -194,10 +196,15 @@ async def trends_page(
     hours: int = Query(24, ge=1, le=720),
 ):
     """Trends and topic analysis page."""
-    trends = await get_trending_words(hours=hours, limit=10)
-    top_words = await get_top_words(hours=hours, limit=10)
-    sentiment = await get_recent_sentiment(hours=hours)
-    snapshots = await get_snapshot_history(hours=hours)
+    import asyncio
+    
+    # Run queries in parallel
+    trends, top_words, sentiment, snapshots = await asyncio.gather(
+        get_trending_words(hours=hours, limit=10),
+        get_top_words(hours=hours, limit=10),
+        get_recent_sentiment(hours=hours),
+        get_snapshot_history(hours=hours)
+    )
     
     return templates.TemplateResponse("trends.html", {
         "request": request,
@@ -212,10 +219,16 @@ async def trends_page(
 @router.get("/analytics", response_class=HTMLResponse)
 async def analytics_page(request: Request):
     """Analytics and insights page."""
-    top_posters = await get_top_posters(limit=15)
-    activity_by_hour = await get_activity_by_hour()
-    submolt_activity = await get_submolt_activity(limit=15)
-    stats = await get_stats()
+    import asyncio
+    import math
+    
+    # Run queries in parallel
+    top_posters, activity_by_hour, submolt_activity, stats = await asyncio.gather(
+        get_top_posters(limit=15),
+        get_activity_by_hour(),
+        get_submolt_activity(limit=15),
+        get_stats()
+    )
     
     # Fill in missing hours and calculate log height
     hours_data = {h["hour"]: h["post_count"] for h in activity_by_hour}
@@ -223,7 +236,6 @@ async def analytics_page(request: Request):
     
     # Calculate max for log scaling
     max_posts = max(hours_data.values()) if hours_data else 1
-    import math
     
     for h in range(24):
         count = hours_data.get(h, 0)

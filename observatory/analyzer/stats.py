@@ -2,49 +2,71 @@
 
 import json
 from datetime import datetime, timedelta
+from functools import lru_cache
 from observatory.database.connection import get_db, execute_query
+
+# Cache stats for 5 minutes to reduce query load
+_stats_cache = None
+_stats_cache_time = None
+STATS_CACHE_TTL = 300  # 5 minutes
 
 
 async def get_stats() -> dict:
-    """Get current platform statistics."""
-    db = await get_db()
+    """Get current platform statistics with caching."""
+    global _stats_cache, _stats_cache_time
     
-    # Total counts
-    agents_result = await execute_query("SELECT COUNT(*) as count FROM agents")
-    posts_result = await execute_query("SELECT COUNT(*) as count FROM posts")
-    comments_result = await execute_query("SELECT COUNT(*) as count FROM comments")
-    submolts_result = await execute_query("SELECT COUNT(*) as count FROM submolts")
+    # Return cached result if still valid
+    now = datetime.utcnow()
+    if _stats_cache is not None and _stats_cache_time is not None:
+        if (now - _stats_cache_time).total_seconds() < STATS_CACHE_TTL:
+            return _stats_cache
     
-    # Today's counts
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-    posts_today = await execute_query(
-        "SELECT COUNT(*) as count FROM posts WHERE created_at >= ?",
-        (today_start,)
-    )
+    # Get all counts in a single query
+    now_iso = now.isoformat()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    one_hour_ago = (now - timedelta(hours=1)).isoformat()
+    one_day_ago = (now - timedelta(hours=24)).isoformat()
     
-    # Active in last hour
-    one_hour_ago = (datetime.utcnow() - timedelta(hours=1)).isoformat()
-    active_1h = await execute_query("""
-        SELECT COUNT(DISTINCT agent_name) as count FROM posts
-        WHERE created_at >= ?
-    """, (one_hour_ago,))
+    result = await execute_query("""
+        SELECT
+            (SELECT COUNT(*) FROM agents) as total_agents,
+            (SELECT COUNT(*) FROM posts) as total_posts,
+            (SELECT COUNT(*) FROM comments) as total_comments,
+            (SELECT COUNT(*) FROM submolts) as total_submolts,
+            (SELECT COUNT(*) FROM posts WHERE created_at >= ?) as posts_today,
+            (SELECT COUNT(DISTINCT agent_name) FROM posts WHERE created_at >= ?) as active_agents_1h,
+            (SELECT COUNT(DISTINCT agent_name) FROM posts WHERE created_at >= ?) as active_agents_24h
+    """, (today_start, one_hour_ago, one_day_ago))
     
-    # Active in last 24 hours
-    one_day_ago = (datetime.utcnow() - timedelta(hours=24)).isoformat()
-    active_24h = await execute_query("""
-        SELECT COUNT(DISTINCT agent_name) as count FROM posts
-        WHERE created_at >= ?
-    """, (one_day_ago,))
+    if result:
+        _stats_cache = {
+            "total_agents": result[0]["total_agents"],
+            "total_posts": result[0]["total_posts"],
+            "total_comments": result[0]["total_comments"],
+            "total_submolts": result[0]["total_submolts"],
+            "posts_today": result[0]["posts_today"],
+            "active_agents_1h": result[0]["active_agents_1h"],
+            "active_agents_24h": result[0]["active_agents_24h"],
+        }
+        _stats_cache_time = now
+        return _stats_cache
     
     return {
-        "total_agents": agents_result[0]["count"] if agents_result else 0,
-        "total_posts": posts_result[0]["count"] if posts_result else 0,
-        "total_comments": comments_result[0]["count"] if comments_result else 0,
-        "total_submolts": submolts_result[0]["count"] if submolts_result else 0,
-        "posts_today": posts_today[0]["count"] if posts_today else 0,
-        "active_agents_1h": active_1h[0]["count"] if active_1h else 0,
-        "active_agents_24h": active_24h[0]["count"] if active_24h else 0,
+        "total_agents": 0,
+        "total_posts": 0,
+        "total_comments": 0,
+        "total_submolts": 0,
+        "posts_today": 0,
+        "active_agents_1h": 0,
+        "active_agents_24h": 0,
     }
+
+
+def invalidate_stats_cache() -> None:
+    """Invalidate the stats cache."""
+    global _stats_cache, _stats_cache_time
+    _stats_cache = None
+    _stats_cache_time = None
 
 
 async def get_new_agents_today() -> list[dict]:

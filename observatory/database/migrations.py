@@ -93,9 +93,16 @@ CREATE TABLE IF NOT EXISTS word_frequency (
 CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_posts_submolt ON posts(submolt);
 CREATE INDEX IF NOT EXISTS idx_posts_agent_id ON posts(agent_id);
+CREATE INDEX IF NOT EXISTS idx_posts_agent_name ON posts(agent_name);
+CREATE INDEX IF NOT EXISTS idx_posts_agent_created ON posts(agent_name, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id);
 CREATE INDEX IF NOT EXISTS idx_agents_karma ON agents(karma DESC);
+CREATE INDEX IF NOT EXISTS idx_agents_follower_count ON agents(follower_count DESC);
+CREATE INDEX IF NOT EXISTS idx_agents_name ON agents(name);
 CREATE INDEX IF NOT EXISTS idx_word_frequency_hour ON word_frequency(hour DESC);
+CREATE INDEX IF NOT EXISTS idx_word_frequency_word_hour ON word_frequency(word, hour DESC);
+CREATE INDEX IF NOT EXISTS idx_submolts_subscriber ON submolts(subscriber_count DESC);
+CREATE INDEX IF NOT EXISTS idx_submolts_post_count ON submolts(post_count DESC);
 """
 
 
