@@ -65,6 +65,50 @@ async def poll_agents() -> None:
         print(f"[{datetime.now().isoformat()}] Error polling agents: {e}")
 
 
+async def poll_comments() -> None:
+    """Fetch comments for posts that have comments."""
+    from observatory.database.connection import execute_query
+    from observatory.poller.client import get_client
+    from observatory.poller.processors import process_comments
+    
+    try:
+        # Get posts with comments that we haven't fetched comments for yet
+        # We check if comment_count > 0 but we have no comments stored for that post
+        posts = await execute_query("""
+            SELECT p.id, p.comment_count 
+            FROM posts p
+            LEFT JOIN (
+                SELECT post_id, COUNT(*) as stored_comments 
+                FROM comments 
+                GROUP BY post_id
+            ) c ON p.id = c.post_id
+            WHERE p.comment_count > 0 
+            AND (c.stored_comments IS NULL OR c.stored_comments < p.comment_count)
+            ORDER BY p.created_at DESC
+            LIMIT 10
+        """)
+        
+        if not posts:
+            return
+            
+        client = await get_client()
+        total_new = 0
+        
+        for post in posts:
+            try:
+                data = await client.get_post_comments(post["id"])
+                new_count = await process_comments(post["id"], data)
+                total_new += new_count
+            except Exception as e:
+                print(f"[{datetime.now().isoformat()}] Error fetching comments for post {post['id']}: {e}")
+                
+        if total_new > 0:
+            print(f"[{datetime.now().isoformat()}] Fetched {total_new} new comments")
+            
+    except Exception as e:
+        print(f"[{datetime.now().isoformat()}] Error polling comments: {e}")
+
+
 async def calculate_trends() -> None:
     """Calculate trending words from recent posts."""
     from observatory.analyzer.trends import update_word_frequency
@@ -114,6 +158,15 @@ def setup_scheduler() -> AsyncIOScheduler:
         IntervalTrigger(seconds=config.POLL_AGENTS_INTERVAL),
         id="poll_agents",
         name="Poll agent profiles",
+        replace_existing=True,
+    )
+    
+    # Fetch comments every 5 minutes
+    scheduler.add_job(
+        poll_comments,
+        IntervalTrigger(minutes=5),
+        id="poll_comments",
+        name="Fetch post comments",
         replace_existing=True,
     )
     
