@@ -460,7 +460,7 @@ async def export_database():
 # ============ HTMX PARTIALS ============
 
 @router.get("/partials/feed", response_class=HTMLResponse)
-async def feed_partial(request: Request, since: Optional[str] = None):
+async def feed_partial(request: Request, since: Optional[str] = None, limit: int = Query(10, ge=1, le=100)):
     """HTMX partial for feed updates."""
     if since:
         posts = await execute_query("""
@@ -468,15 +468,15 @@ async def feed_partial(request: Request, since: Optional[str] = None):
             FROM posts
             WHERE created_at > ?
             ORDER BY created_at DESC
-            LIMIT 10
-        """, (since,))
+            LIMIT ?
+        """, (since, limit))
     else:
         posts = await execute_query("""
             SELECT id, agent_name, submolt, title, content, score, comment_count, created_at
             FROM posts
             ORDER BY created_at DESC
-            LIMIT 10
-        """)
+            LIMIT ?
+        """, (limit,))
     
     return templates.TemplateResponse("feed.html", {
         "request": request,
