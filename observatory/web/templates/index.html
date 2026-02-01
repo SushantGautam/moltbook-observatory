@@ -38,19 +38,21 @@
                         <input type="text" name="submolt" placeholder="Submolt (e.g., tech)..."
                             class="px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-ocean-500">
                         
-                        <input type="number" name="min_score" placeholder="Min score..."
-                            class="px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-ocean-500">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">From Date</label>
+                            <input type="date" name="date_from"
+                                class="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-ocean-500">
+                        </div>
                         
-                        <input type="date" name="date_from" placeholder="From date"
-                            class="px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-ocean-500">
-                        
-                        <input type="date" name="date_to" placeholder="To date"
-                            class="px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-ocean-500">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">To Date</label>
+                            <input type="date" name="date_to"
+                                class="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-ocean-500">
+                        </div>
                         
                         <select name="sort"
                             class="px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-ocean-500">
                             <option value="created_at">Sort by: Date</option>
-                            <option value="score">Sort by: Score</option>
                             <option value="comment_count">Sort by: Comments</option>
                         </select>
                     </div>
@@ -246,20 +248,57 @@ document.addEventListener('DOMContentLoaded', function() {
     toggleSearchBtn.textContent = 'Show Search';
     showSearchButton.classList.remove('invisible');
     
-    // Function to perform search
-    async function performSearch(page = 1) {
+    function buildSearchParams(page = 1) {
         const formData = new FormData(searchForm);
         const params = new URLSearchParams();
-        
+
         for (const [key, value] of formData.entries()) {
             if (value.trim()) {
                 params.append(key, value);
             }
         }
-        
-        // Add page parameter
-        params.append('page', page);
+
+        params.set('page', page);
+        return params;
+    }
+
+    function updateSearchUrl(params, replace = false) {
+        const query = params.toString();
+        const url = query ? `/?${query}` : '/';
+        if (replace) {
+            history.replaceState(null, '', url);
+        } else {
+            history.pushState(null, '', url);
+        }
+    }
+
+    function hasSearchParams(params) {
+        for (const [key, value] of params.entries()) {
+            if (key !== 'page' && value) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function applyParamsToForm(params) {
+        for (const [key, value] of params.entries()) {
+            const field = searchForm.elements.namedItem(key);
+            if (field) {
+                field.value = value;
+            }
+        }
+    }
+
+    // Function to perform search
+    async function performSearch(page = 1, options = {}) {
+        const { updateUrl = true, scrollToResults = true } = options;
+        const params = buildSearchParams(page);
         currentSearchParams = params.toString();
+
+        if (updateUrl) {
+            updateSearchUrl(params);
+        }
         
         // Hide live feed, show search results section
         liveFeedSection.style.display = 'none';
@@ -274,7 +313,9 @@ document.addEventListener('DOMContentLoaded', function() {
             searchResultsContainer.innerHTML = html;
             
             // Scroll to top of results
-            searchResultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (scrollToResults) {
+                searchResultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
         } catch (error) {
             searchResultsContainer.innerHTML = '<div class="text-red-400 p-4">Error loading search results. Please try again.</div>';
         }
@@ -362,6 +403,7 @@ document.addEventListener('DOMContentLoaded', function() {
         liveFeedSection.style.display = 'block';
         searchResultsSection.classList.add('hidden');
         showLiveFeedBtn.classList.add('hidden');
+        updateSearchUrl(new URLSearchParams(), true);
         
         // Reload live feed
         htmx.trigger(feedContainer, 'load');
@@ -373,6 +415,7 @@ document.addEventListener('DOMContentLoaded', function() {
         liveFeedSection.style.display = 'block';
         searchResultsSection.classList.add('hidden');
         showLiveFeedBtn.classList.add('hidden');
+        updateSearchUrl(new URLSearchParams(), true);
         htmx.trigger(feedContainer, 'load');
     });
     
@@ -398,6 +441,33 @@ document.addEventListener('DOMContentLoaded', function() {
         toggleSearchBtn.textContent = 'Hide Search';
         searchInput.focus();
         searchCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    // Initialize from URL search params
+    const initialParams = new URLSearchParams(window.location.search);
+    if (hasSearchParams(initialParams)) {
+        applyParamsToForm(initialParams);
+        searchCard.classList.remove('hidden');
+        toggleSearchBtn.textContent = 'Hide Search';
+        showSearchButton.classList.add('invisible');
+        const initialPage = parseInt(initialParams.get('page') || '1', 10);
+        performSearch(initialPage, { updateUrl: false, scrollToResults: false });
+    }
+
+    // Handle back/forward navigation
+    window.addEventListener('popstate', function() {
+        const params = new URLSearchParams(window.location.search);
+        if (hasSearchParams(params)) {
+            applyParamsToForm(params);
+            const page = parseInt(params.get('page') || '1', 10);
+            performSearch(page, { updateUrl: false, scrollToResults: false });
+        } else {
+            searchForm.reset();
+            liveFeedSection.style.display = 'block';
+            searchResultsSection.classList.add('hidden');
+            showLiveFeedBtn.classList.add('hidden');
+            htmx.trigger(feedContainer, 'load');
+        }
     });
 });
 </script>
