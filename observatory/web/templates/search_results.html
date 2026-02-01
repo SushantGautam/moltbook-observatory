@@ -1,11 +1,11 @@
-<!-- Feed partial - loaded via HTMX -->
-{% if total_posts is defined %}
-<div class="mb-4 p-3 bg-slate-800/30 border border-slate-700 rounded-lg">
+<!-- Search Results partial with pagination -->
+<div class="mb-4 p-3 bg-ocean-900/30 border border-ocean-700 rounded-lg">
     <div class="flex items-center justify-between">
         <div class="text-sm">
-            <span class="text-slate-400">Total Posts:</span>
-            <span class="text-white font-semibold">{{ total_posts }}</span>
-            {% if total_posts > 0 %}
+            <span class="text-ocean-300">🔍 Found:</span>
+            <span class="text-white font-semibold">{{ total_results }}</span>
+            <span class="text-slate-400">results</span>
+            {% if total_results > 0 %}
             <span class="text-slate-600 mx-2">•</span>
             <span class="text-slate-400">Page</span>
             <span class="text-white font-semibold">{{ page }}</span>
@@ -18,8 +18,8 @@
         </div>
     </div>
 </div>
-{% endif %}
 
+<!-- Posts -->
 <div class="space-y-4">
     {% for post in posts %}
     <article class="bg-slate-800/50 hover:bg-slate-800/70 rounded-lg p-4 transition-colors hover-lift animate-fade-in"
@@ -83,19 +83,20 @@
         </div>
     </article>
     {% else %}
-    <div class="text-center py-8 text-slate-500">
-        <p>No posts yet. Waiting for data...</p>
-        <p class="text-sm mt-2">The poller will fetch new posts shortly.</p>
+    <div class="text-center py-12 text-slate-500">
+        <div class="text-6xl mb-4">🔍</div>
+        <p class="text-lg font-medium">No posts found</p>
+        <p class="text-sm mt-2">Try adjusting your search filters</p>
     </div>
     {% endfor %}
 </div>
 
 <!-- Pagination -->
-{% if total_pages is defined and total_pages > 1 %}
+{% if total_pages > 1 %}
 <div class="mt-6 flex items-center justify-center space-x-2">
     <!-- Previous button -->
     {% if page > 1 %}
-    <button data-feed-page="{{ page - 1 }}"
+    <button data-page="{{ page - 1 }}"
         class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors">
         ← Previous
     </button>
@@ -112,7 +113,7 @@
         {% set end_page = [total_pages, page + 2]|min %}
         
         {% if start_page > 1 %}
-        <button data-feed-page="1"
+        <button data-page="1"
             class="w-10 h-10 flex items-center justify-center rounded-lg text-sm {% if page == 1 %}bg-ocean-600 text-white{% else %}bg-slate-700 hover:bg-slate-600 text-slate-300{% endif %} transition-colors">
             1
         </button>
@@ -122,7 +123,7 @@
         {% endif %}
         
         {% for p in range(start_page, end_page + 1) %}
-        <button data-feed-page="{{ p }}"
+        <button data-page="{{ p }}"
             class="w-10 h-10 flex items-center justify-center rounded-lg text-sm {% if p == page %}bg-ocean-600 text-white font-semibold{% else %}bg-slate-700 hover:bg-slate-600 text-slate-300{% endif %} transition-colors">
             {{ p }}
         </button>
@@ -132,7 +133,7 @@
         {% if end_page < total_pages - 1 %}
         <span class="text-slate-600 px-2">...</span>
         {% endif %}
-        <button data-feed-page="{{ total_pages }}"
+        <button data-page="{{ total_pages }}"
             class="w-10 h-10 flex items-center justify-center rounded-lg text-sm {% if page == total_pages %}bg-ocean-600 text-white{% else %}bg-slate-700 hover:bg-slate-600 text-slate-300{% endif %} transition-colors">
             {{ total_pages }}
         </button>
@@ -141,7 +142,7 @@
 
     <!-- Next button -->
     {% if page < total_pages %}
-    <button data-feed-page="{{ page + 1 }}"
+    <button data-page="{{ page + 1 }}"
         class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors">
         Next →
     </button>
@@ -153,8 +154,8 @@
     {% endif %}
 </div>
 
-<!-- Page info -->
+<!-- Page size info -->
 <div class="mt-4 text-center text-xs text-slate-500">
-    Showing {{ ((page - 1) * per_page + 1) if posts else 0 }} - {{ ((page - 1) * per_page + posts|length) }} of {{ total_posts }} posts
+    Showing {{ ((page - 1) * per_page + 1) if posts else 0 }} - {{ ((page - 1) * per_page + posts|length) }} of {{ total_results }} results
 </div>
 {% endif %}

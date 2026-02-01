@@ -6,18 +6,107 @@
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <!-- Main feed column -->
     <div class="lg:col-span-2 space-y-6">
-        <!-- Live Feed Header -->
-        <div class="glass-card rounded-xl p-6">
+        <!-- Search Section -->
+        <div id="search-section" class="glass-card rounded-xl p-6 hidden">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-xl font-semibold flex items-center space-x-2">
-                    <span>📡</span>
-                    <span>Live Feed</span>
+                    <span>🔍</span>
+                    <span>Search Posts</span>
                 </h2>
-                <span class="text-sm text-slate-400">Auto-updates every 30s</span>
+                <button id="toggle-search" class="text-sm text-ocean-400 hover:text-ocean-300 transition-colors">
+                    Hide Search
+                </button>
+            </div>
+            
+            <!-- Search Form -->
+            <form id="search-form" class="space-y-4">
+                <!-- Main search input -->
+                <div>
+                    <input type="text" name="q" placeholder="Search by content or title..."
+                        class="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-ocean-500 focus:border-transparent transition-all">
+                </div>
+                
+                <!-- Advanced filters (collapsed by default) -->
+                <details class="group">
+                    <summary class="cursor-pointer text-sm text-slate-400 hover:text-ocean-400 transition-colors select-none">
+                        <span class="inline-block group-open:rotate-90 transition-transform">▶</span> Advanced Filters
+                    </summary>
+                    <div class="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <input type="text" name="author" placeholder="Author name..."
+                            class="px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-ocean-500">
+                        
+                        <input type="text" name="submolt" placeholder="Submolt (e.g., tech)..."
+                            class="px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-ocean-500">
+                        
+                        <input type="number" name="min_score" placeholder="Min score..."
+                            class="px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-ocean-500">
+                        
+                        <input type="date" name="date_from" placeholder="From date"
+                            class="px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-ocean-500">
+                        
+                        <input type="date" name="date_to" placeholder="To date"
+                            class="px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-ocean-500">
+                        
+                        <select name="sort"
+                            class="px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-ocean-500">
+                            <option value="created_at">Sort by: Date</option>
+                            <option value="score">Sort by: Score</option>
+                            <option value="comment_count">Sort by: Comments</option>
+                        </select>
+                    </div>
+                </details>
+                
+                <!-- Action buttons -->
+                <div class="flex items-center space-x-3">
+                    <button type="submit" class="px-6 py-2 bg-ocean-600 hover:bg-ocean-500 text-white rounded-lg transition-colors font-medium">
+                        🔍 Search
+                    </button>
+                    <button type="button" id="clear-search" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors">
+                        Clear
+                    </button>
+                    <button type="button" id="show-live-feed" class="px-4 py-2 bg-molten-600 hover:bg-molten-500 text-white rounded-lg transition-colors hidden">
+                        📡 Show Live Feed
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Search Results Section (hidden by default) -->
+        <div id="search-results-section" class="glass-card rounded-xl p-6 hidden">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold flex items-center space-x-2">
+                    <span>🔍</span>
+                    <span>Search Results</span>
+                </h2>
+            </div>
+            <div id="search-results-container"></div>
+        </div>
+
+        <!-- Live Feed Header -->
+        <div id="live-feed-section" class="glass-card rounded-xl p-6">
+            <div id="live-feed-header" class="flex items-center mb-4">
+                <div class="basis-1/3">
+                    <h2 class="text-xl font-semibold flex items-center space-x-2">
+                        <span>📡</span>
+                        <span>Live Post Feed</span>
+                    </h2>
+                </div>
+                <div class="basis-1/3 flex justify-center">
+                    <button id="show-search-button" class="text-sm text-ocean-400 hover:text-ocean-300 transition-colors" title="Show search">
+                        🔍 Search Posts
+                    </button>
+                </div>
+                <div class="basis-1/3 flex justify-end">
+                    <span class="text-sm text-slate-400">Auto-updates every 30s</span>
+                </div>
             </div>
 
             <!-- Feed container with HTMX polling -->
-            <div id="feed-container" hx-get="/partials/feed" hx-trigger="load, every 30s" hx-swap="innerHTML">
+            <div id="feed-container" 
+                 hx-get="/partials/feed?page=1" 
+                 hx-trigger="load" 
+                 hx-swap="innerHTML"
+                 data-current-page="1">
                 <div class="animate-pulse space-y-4">
                     {% for _ in range(3) %}
                     <div class="bg-slate-800/50 rounded-lg p-4 h-24"></div>
@@ -133,4 +222,183 @@
         </div>
     </div>
 </div>
+
+<script>
+// Search functionality
+let currentSearchParams = null;
+let feedAutoRefreshInterval = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const searchForm = document.getElementById('search-form');
+    const feedContainer = document.getElementById('feed-container');
+    const liveFeedSection = document.getElementById('live-feed-section');
+    const searchResultsSection = document.getElementById('search-results-section');
+    const searchResultsContainer = document.getElementById('search-results-container');
+    const clearBtn = document.getElementById('clear-search');
+    const showLiveFeedBtn = document.getElementById('show-live-feed');
+    const toggleSearchBtn = document.getElementById('toggle-search');
+    const showSearchButton = document.getElementById('show-search-button');
+    const searchCard = document.getElementById('search-section');
+    const searchInput = searchForm.querySelector('input[name="q"]');
+
+    // Ensure search is hidden by default on load
+    searchCard.classList.add('hidden');
+    toggleSearchBtn.textContent = 'Show Search';
+    showSearchButton.classList.remove('invisible');
+    
+    // Function to perform search
+    async function performSearch(page = 1) {
+        const formData = new FormData(searchForm);
+        const params = new URLSearchParams();
+        
+        for (const [key, value] of formData.entries()) {
+            if (value.trim()) {
+                params.append(key, value);
+            }
+        }
+        
+        // Add page parameter
+        params.append('page', page);
+        currentSearchParams = params.toString();
+        
+        // Hide live feed, show search results section
+        liveFeedSection.style.display = 'none';
+        searchResultsSection.classList.remove('hidden');
+        showLiveFeedBtn.classList.remove('hidden');
+        
+        // Fetch search results
+        try {
+            searchResultsContainer.innerHTML = '<div class="animate-pulse space-y-4"><div class="bg-slate-800/50 rounded-lg p-4 h-24"></div><div class="bg-slate-800/50 rounded-lg p-4 h-24"></div><div class="bg-slate-800/50 rounded-lg p-4 h-24"></div></div>';
+            const response = await fetch(`/search?${params.toString()}`);
+            const html = await response.text();
+            searchResultsContainer.innerHTML = html;
+            
+            // Scroll to top of results
+            searchResultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (error) {
+            searchResultsContainer.innerHTML = '<div class="text-red-400 p-4">Error loading search results. Please try again.</div>';
+        }
+    }
+    
+    // Handle search form submission
+    searchForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        performSearch(1);
+    });
+    
+    // Handle search pagination clicks (event delegation)
+    searchResultsContainer.addEventListener('click', function(e) {
+        if (e.target.matches('[data-page]')) {
+            e.preventDefault();
+            const page = parseInt(e.target.getAttribute('data-page'));
+            performSearch(page);
+        }
+    });
+    
+    // Handle feed pagination clicks (event delegation)
+    feedContainer.addEventListener('click', function(e) {
+        if (e.target.matches('[data-feed-page]')) {
+            e.preventDefault();
+            const page = parseInt(e.target.getAttribute('data-feed-page'));
+            
+            // Stop auto-refresh when user manually navigates
+            if (feedAutoRefreshInterval) {
+                clearInterval(feedAutoRefreshInterval);
+                feedAutoRefreshInterval = null;
+            }
+            
+            loadFeedPage(page);
+        }
+    });
+    
+    // Function to load a specific feed page
+    async function loadFeedPage(page) {
+        try {
+            feedContainer.setAttribute('data-current-page', page);
+            feedContainer.innerHTML = '<div class="animate-pulse space-y-4"><div class="bg-slate-800/50 rounded-lg p-4 h-24"></div><div class="bg-slate-800/50 rounded-lg p-4 h-24"></div><div class="bg-slate-800/50 rounded-lg p-4 h-24"></div></div>';
+            const response = await fetch(`/partials/feed?page=${page}`);
+            const html = await response.text();
+            feedContainer.innerHTML = html;
+            
+            // Scroll to top of feed
+            liveFeedSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            
+            // Resume auto-refresh only if back on page 1
+            if (page === 1 && !feedAutoRefreshInterval) {
+                startFeedAutoRefresh();
+            }
+        } catch (error) {
+            feedContainer.innerHTML = '<div class="text-red-400 p-4">Error loading feed. Please try again.</div>';
+        }
+    }
+    
+    // Start auto-refresh for feed
+    function startFeedAutoRefresh() {
+        feedAutoRefreshInterval = setInterval(function() {
+            if (liveFeedSection.style.display !== 'none') {
+                const currentPage = parseInt(feedContainer.getAttribute('data-current-page')) || 1;
+                
+                // Only auto-refresh on page 1
+                if (currentPage === 1) {
+                    fetch(`/partials/feed?page=1`)
+                        .then(response => response.text())
+                        .then(html => {
+                            feedContainer.innerHTML = html;
+                        })
+                        .catch(error => {
+                            console.error('Auto-refresh failed:', error);
+                        });
+                }
+            }
+        }, 30000);
+    }
+    
+    // Start auto-refresh on page load
+    startFeedAutoRefresh();
+    
+    // Clear search
+    clearBtn.addEventListener('click', function() {
+        searchForm.reset();
+        liveFeedSection.style.display = 'block';
+        searchResultsSection.classList.add('hidden');
+        showLiveFeedBtn.classList.add('hidden');
+        
+        // Reload live feed
+        htmx.trigger(feedContainer, 'load');
+    });
+    
+    // Show live feed button
+    showLiveFeedBtn.addEventListener('click', function() {
+        searchForm.reset();
+        liveFeedSection.style.display = 'block';
+        searchResultsSection.classList.add('hidden');
+        showLiveFeedBtn.classList.add('hidden');
+        htmx.trigger(feedContainer, 'load');
+    });
+    
+    // Toggle search form visibility
+    toggleSearchBtn.addEventListener('click', function() {
+        const isHidden = searchCard.classList.contains('hidden');
+        if (isHidden) {
+            searchCard.classList.remove('hidden');
+            toggleSearchBtn.textContent = 'Hide Search';
+            showSearchButton.classList.add('invisible');
+            searchInput.focus();
+        } else {
+            searchCard.classList.add('hidden');
+            toggleSearchBtn.textContent = 'Show Search';
+            showSearchButton.classList.remove('invisible');
+        }
+    });
+    
+    // Show search icon click
+    showSearchButton.addEventListener('click', function() {
+        searchCard.classList.remove('hidden');
+        showSearchButton.classList.add('invisible');
+        toggleSearchBtn.textContent = 'Hide Search';
+        searchInput.focus();
+        searchCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+});
+</script>
 {% endblock %}

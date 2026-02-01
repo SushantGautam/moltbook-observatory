@@ -538,28 +538,130 @@ async def export_database():
 # ============ HTMX PARTIALS ============
 
 @router.get("/partials/feed", response_class=HTMLResponse)
-async def feed_partial(request: Request, since: Optional[str] = None, limit: int = Query(10, ge=1, le=100)):
-    """HTMX partial for feed updates."""
-    if since:
-        posts = await execute_query("""
-            SELECT id, agent_name, submolt, title, content, score, comment_count, created_at
-            FROM posts
-            WHERE created_at > ?
-            ORDER BY created_at DESC
-            LIMIT ?
-        """, (since, limit))
-    else:
-        posts = await execute_query("""
-            SELECT id, agent_name, submolt, title, content, score, comment_count, created_at
-            FROM posts
-            ORDER BY created_at DESC
-            LIMIT ?
-        """, (limit,))
+async def feed_partial(
+    request: Request, 
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100)
+):
+    """HTMX partial for feed updates with pagination."""
+    # Get total count
+    count_result = await execute_query("SELECT COUNT(*) as count FROM posts")
+    total_posts = count_result[0]["count"] if count_result else 0
+    
+    # Calculate pagination
+    total_pages = (total_posts + per_page - 1) // per_page if total_posts > 0 else 1
+    offset = (page - 1) * per_page
+    
+    # Get paginated posts
+    posts = await execute_query("""
+        SELECT id, agent_name, submolt, title, content, score, comment_count, created_at
+        FROM posts
+        ORDER BY created_at DESC
+        LIMIT ? OFFSET ?
+    """, (per_page, offset))
     
     return templates.TemplateResponse("feed.html", {
         "request": request,
         "posts": posts,
         "config": config,
+        "page": page,
+        "per_page": per_page,
+        "total_posts": total_posts,
+        "total_pages": total_pages,
+    })
+
+
+@router.get("/search", response_class=HTMLResponse)
+async def search_posts(
+    request: Request,
+    q: Optional[str] = Query(None, description="Search query for content/title"),
+    author: Optional[str] = Query(None, description="Filter by author name"),
+    submolt: Optional[str] = Query(None, description="Filter by submolt"),
+    date_from: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
+    date_to: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    min_score: Optional[int] = Query(None, ge=0, description="Minimum score"),
+    sort: str = Query("created_at", pattern="^(created_at|score|comment_count)$"),
+    order: str = Query("desc", pattern="^(asc|desc)$"),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+):
+    """Search posts with multiple filters and pagination."""
+    # Build the WHERE clause dynamically
+    where_conditions = []
+    params = []
+    
+    # Text search in content and title
+    if q:
+        where_conditions.append("(content LIKE ? OR title LIKE ?)")
+        search_term = f"%{q}%"
+        params.extend([search_term, search_term])
+    
+    # Author filter
+    if author:
+        where_conditions.append("agent_name LIKE ?")
+        params.append(f"%{author}%")
+    
+    # Submolt filter
+    if submolt:
+        where_conditions.append("submolt = ?")
+        params.append(submolt)
+    
+    # Date range filters
+    if date_from:
+        where_conditions.append("DATE(created_at) >= ?")
+        params.append(date_from)
+    
+    if date_to:
+        where_conditions.append("DATE(created_at) <= ?")
+        params.append(date_to)
+    
+    # Minimum score filter
+    if min_score is not None:
+        where_conditions.append("score >= ?")
+        params.append(min_score)
+    
+    # Build the full query
+    where_clause = f"WHERE {' AND '.join(where_conditions)}" if where_conditions else ""
+    order_sql = "DESC" if order == "desc" else "ASC"
+    
+    # Get count of results
+    count_query = f"SELECT COUNT(*) as count FROM posts {where_clause}"
+    count_result = await execute_query(count_query, tuple(params))
+    total_results = count_result[0]["count"] if count_result else 0
+    
+    # Calculate pagination
+    total_pages = (total_results + per_page - 1) // per_page if total_results > 0 else 1
+    offset = (page - 1) * per_page
+    
+    # Get paginated results
+    query = f"""
+        SELECT id, agent_name, submolt, title, content, score, comment_count, created_at
+        FROM posts
+        {where_clause}
+        ORDER BY {sort} {order_sql}
+        LIMIT ? OFFSET ?
+    """
+    
+    posts = await execute_query(query, tuple(params + [per_page, offset]))
+    
+    return templates.TemplateResponse("search_results.html", {
+        "request": request,
+        "posts": posts,
+        "config": config,
+        "total_results": total_results,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+        "search_params": {
+            "q": q or "",
+            "author": author or "",
+            "submolt": submolt or "",
+            "date_from": date_from or "",
+            "date_to": date_to or "",
+            "min_score": min_score or "",
+            "sort": sort,
+            "order": order,
+        },
     })
 
 
