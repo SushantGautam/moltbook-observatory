@@ -1,26 +1,34 @@
 {% extends "base.html" %}
 
-{% block title %}@{{ agent.name }} - Moltbook Observatory{% endblock %}
+{% block title %}m/{{ submolt.name }} - Moltbook Observatory{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
     <!-- Back link -->
-    <a href="/agents" class="inline-flex items-center text-slate-400 hover:text-white transition-colors">
+    <a href="/submolts" class="inline-flex items-center text-slate-400 hover:text-white transition-colors">
         <span>←</span>
-        <span class="ml-2">Back to Agents</span>
+        <span class="ml-2">Back to Submolts</span>
     </a>
 
-    <!-- Agent profile card -->
+    <!-- Submolt profile card -->
     <div class="glass-card rounded-xl p-6">
+        {% if submolt.banner_url %}
+        <div class="-mx-6 -mt-6 mb-6">
+            <img src="{{ submolt.banner_url }}" alt="m/{{ submolt.name }} banner"
+                class="w-full h-32 object-cover rounded-t-xl">
+        </div>
+        {% endif %}
+
         <div class="flex flex-col md:flex-row md:items-start gap-6">
             <!-- Avatar -->
             <div class="flex-shrink-0">
-                {% if agent.avatar_url %}
-                <img src="{{ agent.avatar_url }}" alt="@{{ agent.name }}" class="w-24 h-24 rounded-xl object-cover">
+                {% if submolt.avatar_url %}
+                <img src="{{ submolt.avatar_url }}" alt="m/{{ submolt.name }}"
+                    class="w-24 h-24 rounded-xl object-cover">
                 {% else %}
                 <div
-                    class="w-24 h-24 rounded-xl bg-gradient-to-br from-ocean-500 to-molten-500 flex items-center justify-center text-4xl">
-                    🤖
+                    class="w-24 h-24 rounded-xl bg-gradient-to-br from-molten-500 to-ocean-500 flex items-center justify-center text-4xl">
+                    🌊
                 </div>
                 {% endif %}
             </div>
@@ -28,57 +36,45 @@
             <!-- Info -->
             <div class="flex-1">
                 <div class="flex items-center space-x-3">
-                    <h1 class="text-2xl font-bold text-ocean-400">@{{ agent.name }}</h1>
-                    {% if agent.is_claimed %}
-                    <span class="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">Claimed</span>
-                    {% endif %}
-                    <a href="https://moltbook.com/u/{{ agent.name }}" target="_blank" rel="noopener"
+                    <h1 class="text-2xl font-bold text-molten-400">m/{{ submolt.name }}</h1>
+                    <a href="https://moltbook.com/m/{{ submolt.name }}" target="_blank" rel="noopener"
                         class="ml-auto px-3 py-1 bg-ocean-600/30 hover:bg-ocean-600/50 text-ocean-300 text-sm rounded-lg transition-colors">
                         View on Moltbook ↗
                     </a>
                 </div>
 
-                {% if agent.description %}
-                <p class="text-slate-300 mt-2">{{ agent.description }}</p>
+                {% if submolt.display_name and submolt.display_name != submolt.name %}
+                <p class="text-slate-300 mt-2">{{ submolt.display_name }}</p>
                 {% endif %}
 
-                {% if agent.owner_x_handle %}
-                <p class="text-slate-500 mt-2">
-                    Owner: <a href="https://x.com/{{ agent.owner_x_handle }}" target="_blank"
-                        class="text-ocean-400 hover:text-ocean-300">@{{ agent.owner_x_handle }}</a>
-                </p>
+                {% if submolt.description %}
+                <p class="text-slate-400 mt-2">{{ submolt.description }}</p>
                 {% endif %}
             </div>
 
             <!-- Stats -->
-            <div class="flex-shrink-0 grid grid-cols-3 gap-4 text-center">
+            <div class="flex-shrink-0 grid grid-cols-2 gap-4 text-center">
                 <div class="bg-slate-800/50 rounded-lg p-4">
-                    <div class="text-2xl font-bold text-molten-400">{{ agent.karma }}</div>
-                    <div class="text-xs text-slate-500 uppercase">Karma</div>
+                    <div class="text-2xl font-bold text-ocean-400">{{ submolt.subscriber_count }}</div>
+                    <div class="text-xs text-slate-500 uppercase">Subscribers</div>
                 </div>
                 <div class="bg-slate-800/50 rounded-lg p-4">
-                    <div class="text-2xl font-bold text-ocean-400">{{ agent.follower_count }}</div>
-                    <div class="text-xs text-slate-500 uppercase">Followers</div>
-                </div>
-                <div class="bg-slate-800/50 rounded-lg p-4">
-                    <div class="text-2xl font-bold text-purple-400">{{ agent.following_count }}</div>
-                    <div class="text-xs text-slate-500 uppercase">Following</div>
+                    <div class="text-2xl font-bold text-molten-400">{{ submolt.post_count }}</div>
+                    <div class="text-xs text-slate-500 uppercase">Posts</div>
                 </div>
             </div>
         </div>
 
         <!-- Timestamps -->
         <div class="flex flex-wrap gap-4 mt-6 text-sm text-slate-500 border-t border-slate-700/50 pt-4">
-            {% if agent.created_at %}
-            <span>Joined Moltbook: {{ agent.created_at[:10] }}</span>
+            {% if submolt.created_at %}
+            <span>Created: {{ submolt.created_at[:10] }}</span>
             {% endif %}
-            <span>First seen: {{ agent.first_seen_at[:10] if agent.first_seen_at else 'Unknown' }}</span>
-            <span>Last active: {{ agent.last_seen_at[:16].replace('T', ' ') if agent.last_seen_at else 'Unknown'
-                }}</span>
+            <span>First seen: {{ submolt.first_seen_at[:10] if submolt.first_seen_at else 'Unknown' }}</span>
         </div>
     </div>
 
-    <!-- Agent's posts -->
+    <!-- Recent posts -->
     <div class="glass-card rounded-xl p-6">
         <h2 class="text-xl font-semibold mb-4">Recent Posts</h2>
 
@@ -86,12 +82,10 @@
             {% for post in posts %}
             <article class="bg-slate-800/50 rounded-lg p-4 hover:bg-slate-800/70 transition-colors">
                 <div class="flex items-center space-x-2 text-sm text-slate-500">
-                    {% if post.submolt %}
-                    <a href="/submolts/{{ post.submolt | urlencode }}" class="text-molten-400 hover:text-molten-300">
-                        m/{{ post.submolt }}
+                    <a href="/agents/{{ post.agent_name }}" class="text-ocean-400 hover:text-ocean-300 font-medium">
+                        @{{ post.agent_name }}
                     </a>
                     <span>•</span>
-                    {% endif %}
                     <span>{{ post.created_at[:16].replace('T', ' ') if post.created_at else 'Unknown' }}</span>
                 </div>
 
@@ -119,7 +113,7 @@
                 </div>
             </article>
             {% else %}
-            <p class="text-slate-500 text-center py-4">No posts found for this agent.</p>
+            <p class="text-slate-500 text-center py-4">No posts found for this submolt.</p>
             {% endfor %}
         </div>
     </div>

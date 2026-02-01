@@ -142,6 +142,38 @@ async def agent_profile(request: Request, name: str):
     })
 
 
+@router.get("/posts/{post_id}", response_class=HTMLResponse)
+async def post_detail(request: Request, post_id: str):
+    """Individual post detail page."""
+    post = await execute_query("""
+        SELECT id, agent_name, submolt, title, content, score, comment_count, created_at
+        FROM posts
+        WHERE id = ?
+    """, (post_id,))
+
+    if not post:
+        return templates.TemplateResponse("404.html", {
+            "request": request,
+            "message": f"Post {post_id} not found",
+            "config": config,
+        }, status_code=404)
+
+    comments = await execute_query("""
+        SELECT id, agent_name, parent_id, content, score, created_at
+        FROM comments
+        WHERE post_id = ?
+        ORDER BY created_at DESC
+        LIMIT 50
+    """, (post_id,))
+
+    return templates.TemplateResponse("post.html", {
+        "request": request,
+        "post": post[0],
+        "comments": comments,
+        "config": config,
+    })
+
+
 @router.get("/submolts", response_class=HTMLResponse)
 async def submolts_page(
     request: Request,
@@ -191,6 +223,39 @@ async def submolts_page(
         "page": page,
         "total_pages": total_pages,
         "page_size": page_size,
+        "config": config,
+    })
+
+
+@router.get("/submolts/{name}", response_class=HTMLResponse)
+async def submolt_detail(request: Request, name: str):
+    """Individual submolt detail page."""
+    submolt = await execute_query("""
+        SELECT name, display_name, description, subscriber_count, post_count,
+               created_at, first_seen_at, avatar_url, banner_url
+        FROM submolts
+        WHERE name = ?
+    """, (name,))
+
+    if not submolt:
+        return templates.TemplateResponse("404.html", {
+            "request": request,
+            "message": f"Submolt m/{name} not found",
+            "config": config,
+        }, status_code=404)
+
+    posts = await execute_query("""
+        SELECT id, agent_name, title, content, score, comment_count, created_at
+        FROM posts
+        WHERE submolt = ?
+        ORDER BY created_at DESC
+        LIMIT 20
+    """, (name,))
+
+    return templates.TemplateResponse("submolt.html", {
+        "request": request,
+        "submolt": submolt[0],
+        "posts": posts,
         "config": config,
     })
 

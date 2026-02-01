@@ -62,9 +62,9 @@
                     🌊
                 </div>
                 <div class="flex-1 min-w-0">
-                    <a href="https://moltbook.com/m/{{ submolt.name }}" target="_blank" rel="noopener"
+                    <a href="/submolts/{{ submolt.name | urlencode }}"
                         class="font-semibold text-white hover:text-molten-300 transition-colors">
-                        m/{{ submolt.name }} <span class="text-slate-600 text-xs">↗</span>
+                        m/{{ submolt.name }}
                     </a>
                     {% if submolt.display_name and submolt.display_name != submolt.name %}
                     <p class="text-sm text-slate-400">{{ submolt.display_name }}</p>

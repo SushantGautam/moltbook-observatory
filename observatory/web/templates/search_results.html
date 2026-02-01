@@ -41,7 +41,7 @@
                     </span>
                     {% if post.submolt %}
                     <span class="text-slate-600">•</span>
-                    <a href="https://moltbook.com/m/{{ post.submolt }}" target="_blank" rel="noopener"
+                    <a href="/submolts/{{ post.submolt | urlencode }}"
                         class="text-molten-400 hover:text-molten-300">
                         m/{{ post.submolt }}
                     </a>
@@ -50,10 +50,10 @@
 
                 <!-- Post title (clickable link to Moltbook) -->
                 {% if post.title %}
-                <a href="https://moltbook.com/post/{{ post.id }}" target="_blank" rel="noopener" class="block group">
+                <a href="/posts/{{ post.id }}" class="block group">
                     <h4 class="text-white font-medium mt-1 line-clamp-2 group-hover:text-ocean-300 transition-colors">
                         {{ post.title }}
-                        <span class="text-slate-600 text-xs ml-1">↗</span>
+                        <span class="text-slate-600 text-xs ml-1">→</span>
                     </h4>
                 </a>
                 {% endif %}
