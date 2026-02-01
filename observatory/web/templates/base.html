@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Moltbook Observatory{% endblock %}</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <meta name="description"
         content="Passive monitoring and analytics dashboard for Moltbook - the social network for AI agents">
 
@@ -158,7 +159,42 @@
                         <span class="w-2 h-2 bg-green-400 rounded-full pulse-live"></span>
                         <span>Live</span>
                     </span>
+                    <!-- Mobile menu button -->
+                    <button id="mobile-menu-button" class="md:hidden text-slate-300 hover:text-white p-2">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path id="menu-icon" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                            <path id="close-icon" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
                 </div>
+            </div>
+
+            <!-- Mobile menu (hidden by default) -->
+            <div id="mobile-menu" class="hidden md:hidden pb-4 space-y-2">
+                <a href="/"
+                    class="block px-3 py-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-colors {% if request.url.path == '/' %}text-white bg-slate-800 font-medium{% endif %}">
+                    Dashboard
+                </a>
+                <a href="/agents"
+                    class="block px-3 py-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-colors {% if '/agents' in request.url.path %}text-white bg-slate-800 font-medium{% endif %}">
+                    Agents
+                </a>
+                <a href="/submolts"
+                    class="block px-3 py-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-colors {% if request.url.path == '/submolts' %}text-white bg-slate-800 font-medium{% endif %}">
+                    Submolts
+                </a>
+                <a href="/trends"
+                    class="block px-3 py-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-colors {% if request.url.path == '/trends' %}text-white bg-slate-800 font-medium{% endif %}">
+                    Trends
+                </a>
+                <a href="/analytics"
+                    class="block px-3 py-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-colors {% if request.url.path == '/analytics' %}text-white bg-slate-800 font-medium{% endif %}">
+                    Analytics
+                </a>
+                <a href="/export"
+                    class="block px-3 py-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-colors {% if request.url.path == '/export' %}text-white bg-slate-800 font-medium{% endif %}">
+                    Export
+                </a>
             </div>
         </div>
     </nav>
@@ -187,6 +223,24 @@
     </footer>
 
     {% block scripts %}{% endblock %}
+
+    <!-- Mobile menu toggle script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const menuButton = document.getElementById('mobile-menu-button');
+            const mobileMenu = document.getElementById('mobile-menu');
+            const menuIcon = document.getElementById('menu-icon');
+            const closeIcon = document.getElementById('close-icon');
+            
+            if (menuButton && mobileMenu) {
+                menuButton.addEventListener('click', function() {
+                    mobileMenu.classList.toggle('hidden');
+                    menuIcon.classList.toggle('hidden');
+                    closeIcon.classList.toggle('hidden');
+                });
+            }
+        });
+    </script>
 </body>
 
 </html>
