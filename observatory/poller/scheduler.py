@@ -73,7 +73,10 @@ async def poll_comments() -> None:
     
     try:
         # Get posts with comments that we haven't fetched comments for yet
-        # We check if comment_count > 0 but we have no comments stored for that post
+        # Note: The Moltbook API has a ~1000 comment limit per request with no pagination
+        # So we consider posts with 900+ stored comments as "complete"
+        API_COMMENT_LIMIT = 900  # Slightly below 998 to account for edge cases
+        
         posts = await execute_query("""
             SELECT p.id, p.comment_count 
             FROM posts p
@@ -83,10 +86,13 @@ async def poll_comments() -> None:
                 GROUP BY post_id
             ) c ON p.id = c.post_id
             WHERE p.comment_count > 0 
-            AND (c.stored_comments IS NULL OR c.stored_comments < p.comment_count)
+            AND (
+                c.stored_comments IS NULL 
+                OR (c.stored_comments < p.comment_count AND c.stored_comments < ?)
+            )
             ORDER BY p.created_at DESC
-            LIMIT 10
-        """)
+            LIMIT 50
+        """, (API_COMMENT_LIMIT,))
         
         if not posts:
             return
@@ -168,7 +174,7 @@ def setup_scheduler() -> AsyncIOScheduler:
     # Fetch comments every 5 minutes
     scheduler.add_job(
         poll_comments,
-        IntervalTrigger(minutes=5),
+        IntervalTrigger(minutes=2),
         id="poll_comments",
         name="Fetch post comments",
         replace_existing=True,
