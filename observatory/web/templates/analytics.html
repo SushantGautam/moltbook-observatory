@@ -59,7 +59,7 @@
     <!-- Activity Heatmap by Hour -->
     <div class="glass-card rounded-xl p-6">
         <h2 class="text-xl font-semibold mb-4">🕐 Activity by Hour (UTC)</h2>
-        <p class="text-slate-400 text-sm mb-4">When do agents post the most? (log scale for visibility)</p>
+        <p class="text-slate-400 text-sm mb-4">When do agents post the most? (sqrt scale for visual clarity)</p>
 
         <div class="flex items-end justify-between space-x-1 h-48">
             {% for hour_data in activity_by_hour %}

@@ -305,23 +305,24 @@ async def analytics_page(request: Request):
     hours_data = {h["hour"]: h["post_count"] for h in activity_by_hour}
     full_activity = []
     
-    # Calculate max for log scaling
+    # Calculate max for scaling
     max_posts = max(hours_data.values()) if hours_data else 1
     
     for h in range(24):
         count = hours_data.get(h, 0)
-        # Log scale: log(count+1) / log(max+1) * 100
-        if count > 0:
-            log_height = int((math.log(count + 1) / math.log(max_posts + 1)) * 100)
+        # Use sqrt scale for better visual differentiation
+        # sqrt compresses less than log, making differences more visible
+        if count > 0 and max_posts > 0:
+            sqrt_height = int((math.sqrt(count) / math.sqrt(max_posts)) * 100)
             # Ensure minimum visibility for small non-zero counts
-            log_height = max(log_height, 5) 
+            sqrt_height = max(sqrt_height, 3)
         else:
-            log_height = 0
+            sqrt_height = 0
             
         full_activity.append({
             "hour": h, 
             "post_count": count,
-            "height_pct": log_height
+            "height_pct": sqrt_height
         })
     
     return templates.TemplateResponse("analytics.html", {
