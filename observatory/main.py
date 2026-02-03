@@ -25,6 +25,9 @@ async def lifespan(app: FastAPI):
     await init_db()
     
     # Set up and start scheduler (unless disabled)
+    scheduler = None
+    initial_poll_task = None
+    
     if config.DISABLE_POLL:
         print("⏸️  Polling is disabled")
     else:
@@ -32,14 +35,22 @@ async def lifespan(app: FastAPI):
         scheduler.start()
         print("📡 Background scheduler started")
         
-        # Run initial data fetch
-        await run_initial_poll()
+        # Run initial data fetch in background (don't block startup)
+        import asyncio
+        initial_poll_task = asyncio.create_task(run_initial_poll())
+        print("📊 Initial data fetch started in background")
     
     yield
     
     # Shutdown
     print("Shutting down...")
-    if not config.DISABLE_POLL:
+    if initial_poll_task and not initial_poll_task.done():
+        initial_poll_task.cancel()
+        try:
+            await initial_poll_task
+        except asyncio.CancelledError:
+            pass
+    if scheduler is not None:
         scheduler.shutdown()
     await close_client()
     await close_db()

@@ -37,11 +37,37 @@ async def poll_submolts() -> None:
     
     try:
         client = await get_client()
-        data = await client.get_submolts()
-        count = await process_submolts(data)
-        print(f"[{datetime.now().isoformat()}] Updated {count} submolts")
+            
+        # Fetch all submolts with pagination
+        total_count = 0
+        offset = 0
+        limit = 100
+        
+        while True:
+            try:
+                data = await client.get_submolts(limit=limit, offset=offset)
+                submolts = data.get("submolts", [])
+                
+                if not submolts:
+                    break
+                
+                count = await process_submolts(data)
+                total_count += count
+                
+                # Check if we've fetched all submolts
+                total_available = data.get("count", 0)
+                offset += limit
+                
+                if offset >= total_available:
+                    break
+            except Exception as e:
+                # API may return 500 for high offsets - log and continue
+                print(f"[{datetime.now().isoformat()}] Stopped fetching submolts at offset {offset}: {e}")
+                break
+        
+        if total_count > 0:
+            print(f"[{datetime.now().isoformat()}] Updated {total_count} submolts")
     except Exception as e:
-        print(e)
         print(f"[{datetime.now().isoformat()}] Error polling submolts: {e}")
 
 
@@ -204,7 +230,11 @@ def setup_scheduler() -> AsyncIOScheduler:
 
 async def run_initial_poll() -> None:
     """Run an initial poll on startup."""
-    print("Running initial data fetch...")
-    await poll_submolts()
-    await poll_posts()
-    print("Initial fetch complete")
+    try:
+        print("Running initial data fetch...")
+        await poll_submolts()
+        await poll_posts()
+        print("✅ Initial fetch complete")
+    except Exception as e:
+        print(f"⚠️  Initial fetch encountered an error: {e}")
+        print("Background polling will continue normally")

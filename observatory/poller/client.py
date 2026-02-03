@@ -13,10 +13,13 @@ class MoltbookClient:
             base_url=config.MOLTBOOK_BASE_URL,
             timeout=30.0,
             headers={
-                "Authorization": f"Bearer {config.MOLTBOOK_API_KEY}",
                 "User-Agent": "MoltbookObservatory/1.0",
             }
         )
+        # Keyed rate limiter to ensure we don't exceed per-key API limits and rotate keys
+        from observatory.rate_limiter import get_rate_limiter
+        self._rate_limiter = None
+        self._rate_limiter_getter = get_rate_limiter
     
     async def close(self) -> None:
         """Close the HTTP client."""
@@ -43,13 +46,24 @@ class MoltbookClient:
         if submolt:
             params["submolt"] = submolt
         
-        response = await self.client.get("/posts", params=params)
+        # Rate-limit before making the request
+        if self._rate_limiter is None:
+            self._rate_limiter = await self._rate_limiter_getter()
+        key = await self._rate_limiter.wait_and_get_key()
+        headers = {"Authorization": f"Bearer {key}"}
+
+        response = await self.client.get("/posts", params=params, headers=headers)
         response.raise_for_status()
         return response.json()
     
     async def get_post(self, post_id: str) -> dict:
         """Fetch a single post by ID."""
-        response = await self.client.get(f"/posts/{post_id}")
+        if self._rate_limiter is None:
+            self._rate_limiter = await self._rate_limiter_getter()
+        key = await self._rate_limiter.wait_and_get_key()
+        headers = {"Authorization": f"Bearer {key}"}
+
+        response = await self.client.get(f"/posts/{post_id}", headers=headers)
         response.raise_for_status()
         return response.json()
     
@@ -65,22 +79,38 @@ class MoltbookClient:
             post_id: The post ID
             sort: Sort order - 'top', 'new', 'controversial'
         """
+        if self._rate_limiter is None:
+            self._rate_limiter = await self._rate_limiter_getter()
+        key = await self._rate_limiter.wait_and_get_key()
+        headers = {"Authorization": f"Bearer {key}"}
+
         response = await self.client.get(
             f"/posts/{post_id}/comments",
-            params={"sort": sort}
+            params={"sort": sort},
+            headers=headers,
         )
         response.raise_for_status()
         return response.json()
     
-    async def get_submolts(self) -> dict:
+    async def get_submolts(self, limit: int = 100, offset: int = 0) -> dict:
         """List all submolts."""
-        response = await self.client.get("/submolts")
+        if self._rate_limiter is None:
+            self._rate_limiter = await self._rate_limiter_getter()
+        key = await self._rate_limiter.wait_and_get_key()
+        headers = {"Authorization": f"Bearer {key}"}
+
+        response = await self.client.get("/submolts", params={"limit": limit, "offset": offset}, headers=headers)
         response.raise_for_status()
         return response.json()
     
     async def get_submolt(self, name: str) -> dict:
         """Get info about a specific submolt."""
-        response = await self.client.get(f"/submolts/{name}")
+        if self._rate_limiter is None:
+            self._rate_limiter = await self._rate_limiter_getter()
+        key = await self._rate_limiter.wait_and_get_key()
+        headers = {"Authorization": f"Bearer {key}"}
+
+        response = await self.client.get(f"/submolts/{name}", headers=headers)
         response.raise_for_status()
         return response.json()
     
@@ -90,7 +120,12 @@ class MoltbookClient:
         
         Returns agent info including karma, follower counts, recent posts.
         """
-        response = await self.client.get("/agents/profile", params={"name": name})
+        if self._rate_limiter is None:
+            self._rate_limiter = await self._rate_limiter_getter()
+        key = await self._rate_limiter.wait_and_get_key()
+        headers = {"Authorization": f"Bearer {key}"}
+
+        response = await self.client.get("/agents/profile", params={"name": name}, headers=headers)
         response.raise_for_status()
         return response.json()
     
@@ -100,16 +135,27 @@ class MoltbookClient:
         
         Returns matching posts, agents, and submolts.
         """
+        if self._rate_limiter is None:
+            self._rate_limiter = await self._rate_limiter_getter()
+        key = await self._rate_limiter.wait_and_get_key()
+        headers = {"Authorization": f"Bearer {key}"}
+
         response = await self.client.get(
             "/search",
-            params={"q": query, "limit": limit}
+            params={"q": query, "limit": limit},
+            headers=headers,
         )
         response.raise_for_status()
         return response.json()
     
     async def get_my_profile(self) -> dict:
         """Get the observatory agent's own profile (for testing connection)."""
-        response = await self.client.get("/agents/me")
+        if self._rate_limiter is None:
+            self._rate_limiter = await self._rate_limiter_getter()
+        key = await self._rate_limiter.wait_and_get_key()
+        headers = {"Authorization": f"Bearer {key}"}
+
+        response = await self.client.get("/agents/me", headers=headers)
         response.raise_for_status()
         return response.json()
 

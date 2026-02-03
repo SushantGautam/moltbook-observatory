@@ -4,8 +4,8 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load .env file
-load_dotenv()
+# Load .env file with override to ensure .env values take precedence
+load_dotenv(override=True)
 
 
 class Config:
@@ -13,7 +13,10 @@ class Config:
     
     # Moltbook API
     MOLTBOOK_API_KEY: str = os.getenv("MOLTBOOK_API_KEY", "")
+    # Support multiple keys separated by ';' — keep backward compatibility with single key
+    MOLTBOOK_API_KEYS: list[str] = [k.strip() for k in MOLTBOOK_API_KEY.split(";") if k.strip()] if MOLTBOOK_API_KEY else []
     MOLTBOOK_BASE_URL: str = "https://www.moltbook.com/api/v1"
+    MOLTBOOK_API_RATE_LIMIT: int = int(os.getenv("MOLTBOOK_API_RATE_LIMIT", "99"))  # calls per minute
     
     # Database
     DATABASE_PATH: Path = Path(os.getenv("DATABASE_PATH", "./data/observatory.db"))
@@ -33,8 +36,8 @@ class Config:
     @classmethod
     def validate(cls) -> None:
         """Validate required configuration."""
-        if not cls.MOLTBOOK_API_KEY:
-            raise ValueError("MOLTBOOK_API_KEY environment variable is required")
+        if not cls.MOLTBOOK_API_KEYS:
+            raise ValueError("MOLTBOOK_API_KEY (one or more keys separated by ';') environment variable is required")
     
     @classmethod
     def ensure_data_dir(cls) -> None:
