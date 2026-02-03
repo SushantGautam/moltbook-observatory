@@ -87,7 +87,6 @@ async def poll_comments() -> None:
                 GROUP BY post_id
             ) c ON p.id = c.post_id
             WHERE p.comment_count > 0 
-            AND p.deleted_at IS NULL
             AND (
                 c.stored_comments IS NULL 
                 OR (c.stored_comments < p.comment_count AND c.stored_comments < ?)
