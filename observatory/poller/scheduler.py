@@ -41,6 +41,7 @@ async def poll_submolts() -> None:
         count = await process_submolts(data)
         print(f"[{datetime.now().isoformat()}] Updated {count} submolts")
     except Exception as e:
+        print(e)
         print(f"[{datetime.now().isoformat()}] Error polling submolts: {e}")
 
 
@@ -86,6 +87,7 @@ async def poll_comments() -> None:
                 GROUP BY post_id
             ) c ON p.id = c.post_id
             WHERE p.comment_count > 0 
+            AND p.deleted_at IS NULL
             AND (
                 c.stored_comments IS NULL 
                 OR (c.stored_comments < p.comment_count AND c.stored_comments < ?)
@@ -110,7 +112,16 @@ async def poll_comments() -> None:
                     new_count = await process_comments(post["id"], {"comments": comments})
                     total_new += new_count
             except Exception as e:
-                print(f"[{datetime.now().isoformat()}] Error fetching comments for post {post['id']}: {e}")
+                # Handle 404 errors - post was deleted or is unavailable
+                error_str = str(e)
+                if "404 Not Found" in error_str and "for url" in error_str:
+                    await execute_query(
+                        "UPDATE posts SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?",
+                        (post["id"],)
+                    )
+                    print(f"[{datetime.now().isoformat()}] Marked post {post['id']} as deleted (404)")
+                else:
+                    print(f"[{datetime.now().isoformat()}] Error fetching comments for post {post['id']}: {e}")
                 
         if total_new > 0:
             print(f"[{datetime.now().isoformat()}] Fetched {total_new} new comments")

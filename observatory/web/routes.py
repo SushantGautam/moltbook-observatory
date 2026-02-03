@@ -59,7 +59,7 @@ async def index(request: Request):
 @router.get("/agents", response_class=HTMLResponse)
 async def agents_page(
     request: Request,
-    sort: str = Query("karma", pattern="^(karma|name|follower_count|first_seen_at)$"),
+    sort: str = Query("karma", pattern="^(karma|name|follower_count|post_count|first_seen_at)$"),
     order: str = Query("desc", pattern="^(asc|desc)$"),
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
@@ -82,12 +82,23 @@ async def agents_page(
     total_result = await execute_query(count_query, tuple(params))
     total_agents = total_result[0]["count"] if total_result else 0
     
-    # Get paginated agents
+    # Get paginated agents with post counts calculated
     agents_query = f"""
-        SELECT name, description, karma, follower_count, following_count,
-               is_claimed, owner_x_handle, first_seen_at, created_at
-        FROM agents
+        SELECT 
+            a.name, 
+            a.description, 
+            a.karma, 
+            a.follower_count, 
+            a.following_count,
+            a.is_claimed, 
+            a.owner_x_handle, 
+            a.first_seen_at, 
+            a.created_at,
+            COUNT(p.id) as post_count
+        FROM agents a
+        LEFT JOIN posts p ON a.name = p.agent_name
         {where_clause}
+        GROUP BY a.name
         ORDER BY {sort} {order_sql}
         LIMIT ? OFFSET ?
     """
@@ -112,11 +123,26 @@ async def agents_page(
 @router.get("/agents/{name}", response_class=HTMLResponse)
 async def agent_profile(request: Request, name: str):
     """Individual agent profile page."""
-    agent = await execute_query("""
+    from observatory.analyzer.stats_helpers import get_agent_stats
+    import asyncio
+    
+    agent_coro = execute_query("""
         SELECT name, description, karma, follower_count, following_count,
                is_claimed, owner_x_handle, first_seen_at, last_seen_at, created_at, avatar_url
         FROM agents WHERE name = ?
     """, (name,))
+    
+    posts_coro = execute_query("""
+        SELECT id, submolt, title, content, score, comment_count, created_at
+        FROM posts
+        WHERE agent_name = ?
+        ORDER BY created_at DESC
+        LIMIT 20
+    """, (name,))
+    
+    stats_coro = get_agent_stats(name)
+    
+    agent, posts, stats = await asyncio.gather(agent_coro, posts_coro, stats_coro)
     
     if not agent:
         return templates.TemplateResponse("404.html", {
@@ -125,18 +151,13 @@ async def agent_profile(request: Request, name: str):
             "config": config,
         }, status_code=404)
     
-    # Get agent's posts
-    posts = await execute_query("""
-        SELECT id, submolt, title, content, score, comment_count, created_at
-        FROM posts
-        WHERE agent_name = ?
-        ORDER BY created_at DESC
-        LIMIT 20
-    """, (name,))
+    # Merge stats with agent data
+    agent_data = agent[0]
+    agent_data["post_count"] = stats["post_count"]
     
     return templates.TemplateResponse("agent.html", {
         "request": request,
-        "agent": agent[0],
+        "agent": agent_data,
         "posts": posts,
         "config": config,
     })
@@ -200,11 +221,17 @@ async def submolts_page(
     total_result = await execute_query(count_query, tuple(params))
     total_submolts = total_result[0]["count"] if total_result else 0
     
-    # Get paginated submolts
+    # Get paginated submolts with post counts calculated from posts table
     submolts_query = f"""
-        SELECT name, display_name, description, subscriber_count, post_count,
-               created_at, first_seen_at
-        FROM submolts
+        SELECT 
+            s.name, 
+            s.display_name, 
+            s.description, 
+            s.subscriber_count,
+            s.post_count,
+            s.created_at, 
+            s.first_seen_at
+        FROM submolts s
         {where_clause}
         ORDER BY {sort} {order_sql}
         LIMIT ? OFFSET ?
@@ -230,12 +257,24 @@ async def submolts_page(
 @router.get("/submolts/{name}", response_class=HTMLResponse)
 async def submolt_detail(request: Request, name: str):
     """Individual submolt detail page."""
-    submolt = await execute_query("""
+    import asyncio
+    
+    submolt_coro = execute_query("""
         SELECT name, display_name, description, subscriber_count, post_count,
                created_at, first_seen_at, avatar_url, banner_url
         FROM submolts
         WHERE name = ?
     """, (name,))
+    
+    posts_coro = execute_query("""
+        SELECT id, agent_name, title, content, score, comment_count, created_at
+        FROM posts
+        WHERE submolt = ?
+        ORDER BY created_at DESC
+        LIMIT 20
+    """, (name,))
+    
+    submolt, posts = await asyncio.gather(submolt_coro, posts_coro)
 
     if not submolt:
         return templates.TemplateResponse("404.html", {
@@ -244,17 +283,11 @@ async def submolt_detail(request: Request, name: str):
             "config": config,
         }, status_code=404)
 
-    posts = await execute_query("""
-        SELECT id, agent_name, title, content, score, comment_count, created_at
-        FROM posts
-        WHERE submolt = ?
-        ORDER BY created_at DESC
-        LIMIT 20
-    """, (name,))
+    submolt_data = submolt[0]
 
     return templates.TemplateResponse("submolt.html", {
         "request": request,
-        "submolt": submolt[0],
+        "submolt": submolt_data,
         "posts": posts,
         "config": config,
     })

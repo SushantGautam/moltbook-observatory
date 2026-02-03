@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS posts (
     comment_count INTEGER DEFAULT 0,
     created_at TIMESTAMP,
     fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_pinned BOOLEAN DEFAULT FALSE
+    is_pinned BOOLEAN DEFAULT FALSE,
+    deleted_at TIMESTAMP
 );
 
 -- All comments
@@ -111,4 +112,15 @@ async def init_db() -> None:
     db = await get_db()
     await db.executescript(SCHEMA)
     await db.commit()
+    
+    # Migration: Add deleted_at column if it doesn't exist
+    try:
+        await db.execute("""
+            ALTER TABLE posts ADD COLUMN deleted_at TIMESTAMP
+        """)
+        await db.commit()
+    except Exception:
+        # Column already exists, which is fine
+        pass
+    
     print("Database initialized successfully")

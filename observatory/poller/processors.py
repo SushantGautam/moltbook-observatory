@@ -7,6 +7,7 @@ from observatory.database.connection import get_db
 async def process_posts(posts_data: dict) -> int:
     """
     Process posts from API response and store in database.
+    Also extracts and updates agent/submolt data from post metadata.
     
     Returns number of new posts inserted.
     """
@@ -54,9 +55,18 @@ async def process_posts(posts_data: dict) -> int:
             author_name = author.get("name", "") if author else ""
             
             # Handle submolt being a dict or string
-            submolt = post.get("submolt", "")
-            if isinstance(submolt, dict):
-                submolt = submolt.get("name", "")
+            submolt_data = post.get("submolt", "")
+            submolt_name = ""
+            if isinstance(submolt_data, dict):
+                submolt_name = submolt_data.get("name", "")
+                # Ensure submolt exists with its data
+                if submolt_name:
+                    await ensure_submolt(submolt_name, submolt_data)
+            else:
+                submolt_name = submolt_data
+                # Ensure submolt exists (will be minimal data)
+                if submolt_name:
+                    await ensure_submolt(submolt_name)
             
             # Ensure agent exists BEFORE inserting post (for foreign key constraint)
             if author_name:
@@ -69,7 +79,7 @@ async def process_posts(posts_data: dict) -> int:
                 post_id,
                 author.get("id") if isinstance(author, dict) else None,
                 author_name,
-                submolt,
+                submolt_name,
                 post.get("title", "") or "",
                 post.get("content", "") or "",
                 post.get("url"),
@@ -86,19 +96,44 @@ async def process_posts(posts_data: dict) -> int:
 
 
 async def ensure_agent(name: str, agent_data: dict = None) -> None:
-    """Ensure an agent exists in the database."""
+    """Ensure an agent exists in the database and update with latest available data."""
     db = await get_db()
     
     async with db.execute("SELECT name FROM agents WHERE name = ?", (name,)) as cursor:
         exists = await cursor.fetchone()
     
+    now = datetime.utcnow().isoformat()
+    
     if exists:
-        # Update last seen
-        now = datetime.utcnow().isoformat()
-        await db.execute("UPDATE agents SET last_seen_at = ? WHERE name = ?", (now, name))
+        # Update existing agent with fresh data if available
+        if agent_data:
+            await db.execute("""
+                UPDATE agents SET
+                    description = ?,
+                    karma = ?,
+                    follower_count = ?,
+                    following_count = ?,
+                    is_claimed = ?,
+                    owner_x_handle = ?,
+                    avatar_url = ?,
+                    last_seen_at = ?
+                WHERE name = ?
+            """, (
+                agent_data.get("description", ""),
+                agent_data.get("karma", 0) or 0,
+                agent_data.get("follower_count", 0) or 0,
+                agent_data.get("following_count", 0) or 0,
+                agent_data.get("is_claimed", False),
+                agent_data.get("owner", {}).get("x_handle") if isinstance(agent_data.get("owner"), dict) else None,
+                agent_data.get("avatar_url"),
+                now,
+                name,
+            ))
+        else:
+            # Just update last_seen
+            await db.execute("UPDATE agents SET last_seen_at = ? WHERE name = ?", (now, name))
     else:
         # Insert new agent
-        now = datetime.utcnow().isoformat()
         await db.execute("""
             INSERT INTO agents (id, name, description, karma, follower_count, following_count, is_claimed, first_seen_at, last_seen_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -204,6 +239,56 @@ async def process_agents(agents_list: list[str]) -> int:
     return updated
 
 
+async def ensure_submolt(name: str, submolt_data: dict = None) -> None:
+    """Ensure a submolt exists in the database and update with latest available data."""
+    db = await get_db()
+    
+    async with db.execute("SELECT name FROM submolts WHERE name = ?", (name,)) as cursor:
+        exists = await cursor.fetchone()
+    
+    now = datetime.utcnow().isoformat()
+    
+    if exists:
+        # Update existing submolt with fresh data if available
+        if submolt_data:
+            await db.execute("""
+                UPDATE submolts SET
+                    display_name = ?,
+                    description = ?,
+                    subscriber_count = ?,
+                    post_count = ?,
+                    avatar_url = ?,
+                    banner_url = ?
+                WHERE name = ?
+            """, (
+                submolt_data.get("display_name", name),
+                submolt_data.get("description", ""),
+                submolt_data.get("subscriber_count", 0) or 0,
+                submolt_data.get("post_count", 0) or 0,
+                submolt_data.get("avatar_url"),
+                submolt_data.get("banner_url"),
+                name,
+            ))
+    else:
+        # Insert new submolt
+        await db.execute("""
+            INSERT INTO submolts (name, display_name, description, subscriber_count, post_count, created_at, first_seen_at, avatar_url, banner_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            name,
+            submolt_data.get("display_name", name) if submolt_data else name,
+            submolt_data.get("description", "") if submolt_data else "",
+            submolt_data.get("subscriber_count", 0) if submolt_data else 0,
+            0,  # Will be calculated from posts
+            submolt_data.get("created_at") if submolt_data else now,
+            now,
+            submolt_data.get("avatar_url") if submolt_data else None,
+            submolt_data.get("banner_url") if submolt_data else None,
+        ))
+    
+    await db.commit()
+
+
 async def process_submolts(submolts_data: dict) -> int:
     """
     Process submolts from API response and store in database.
@@ -215,7 +300,6 @@ async def process_submolts(submolts_data: dict) -> int:
     if not submolts:
         return 0
     
-    now = datetime.utcnow().isoformat()
     count = 0
     
     for submolt in submolts:
@@ -223,46 +307,9 @@ async def process_submolts(submolts_data: dict) -> int:
         if not name:
             continue
         
-        async with db.execute("SELECT name FROM submolts WHERE name = ?", (name,)) as cursor:
-            exists = await cursor.fetchone()
-        
-        if exists:
-            await db.execute("""
-                UPDATE submolts SET
-                    display_name = ?,
-                    description = ?,
-                    subscriber_count = ?,
-                    post_count = ?,
-                    avatar_url = ?,
-                    banner_url = ?
-                WHERE name = ?
-            """, (
-                submolt.get("display_name", name),
-                submolt.get("description", ""),
-                submolt.get("subscriber_count", 0),
-                submolt.get("post_count", 0),
-                submolt.get("avatar_url"),
-                submolt.get("banner_url"),
-                name,
-            ))
-        else:
-            await db.execute("""
-                INSERT INTO submolts (name, display_name, description, subscriber_count, post_count, created_at, first_seen_at, avatar_url, banner_url)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                name,
-                submolt.get("display_name", name),
-                submolt.get("description", ""),
-                submolt.get("subscriber_count", 0),
-                submolt.get("post_count", 0),
-                submolt.get("created_at"),
-                now,
-                submolt.get("avatar_url"),
-                submolt.get("banner_url"),
-            ))
+        await ensure_submolt(name, submolt)
         count += 1
     
-    await db.commit()
     return count
 
 

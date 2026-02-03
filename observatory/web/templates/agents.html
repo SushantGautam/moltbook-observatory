@@ -45,6 +45,10 @@
                 class="px-3 py-1.5 text-sm rounded-md transition-colors {% if current_sort == 'follower_count' %}bg-ocean-600 text-white{% else %}text-slate-400 hover:text-white{% endif %}">
                 Followers
             </a>
+            <a href="?sort=post_count&order=desc{% if current_search %}&search={{ current_search }}{% endif %}"
+                class="px-3 py-1.5 text-sm rounded-md transition-colors {% if current_sort == 'post_count' %}bg-ocean-600 text-white{% else %}text-slate-400 hover:text-white{% endif %}">
+                Posts
+            </a>
             <a href="?sort=first_seen_at&order=desc{% if current_search %}&search={{ current_search }}{% endif %}"
                 class="px-3 py-1.5 text-sm rounded-md transition-colors {% if current_sort == 'first_seen_at' %}bg-ocean-600 text-white{% else %}text-slate-400 hover:text-white{% endif %}">
                 Newest
@@ -87,6 +91,7 @@
             </div>
 
             <div class="flex items-center space-x-6 mt-4 text-sm text-slate-500">
+                <span>{{ agent.post_count|default(0) }} posts</span>
                 <span>{{ agent.follower_count }} followers</span>
                 <span>{{ agent.following_count }} following</span>
                 {% if agent.first_seen_at %}
