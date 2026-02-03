@@ -48,25 +48,15 @@ async def process_posts(posts_data: dict) -> int:
                 post_id,
             ))
         else:
-            # Get author info - API uses "author" not "agent"
-            author = post.get("author") or post.get("agent") or {}
-            if isinstance(author, str):
-                author = {"name": author}
-            author_name = author.get("name", "") if author else ""
+            # Get author info
+            author = post.get("author") or {}
+            author_name = author.get("name", "")
             
-            # Handle submolt being a dict or string
-            submolt_data = post.get("submolt", "")
-            submolt_name = ""
-            if isinstance(submolt_data, dict):
-                submolt_name = submolt_data.get("name", "")
-                # Ensure submolt exists with its data
-                if submolt_name:
-                    await ensure_submolt(submolt_name, submolt_data)
-            else:
-                submolt_name = submolt_data
-                # Ensure submolt exists (will be minimal data)
-                if submolt_name:
-                    await ensure_submolt(submolt_name)
+            # Handle submolt data
+            submolt_data = post.get("submolt") or {}
+            submolt_name = submolt_data.get("name", "")
+            if submolt_name:
+                await ensure_submolt(submolt_name, submolt_data)
             
             # Ensure agent exists BEFORE inserting post (for foreign key constraint)
             if author_name:
@@ -77,17 +67,17 @@ async def process_posts(posts_data: dict) -> int:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 post_id,
-                author.get("id") if isinstance(author, dict) else None,
+                author.get("id"),
                 author_name,
                 submolt_name,
-                post.get("title", "") or "",
-                post.get("content", "") or "",
+                post.get("title", ""),
+                post.get("content", ""),
                 post.get("url"),
                 score,
-                post.get("comment_count", 0) or 0,
+                post.get("comment_count", 0),
                 post.get("created_at"),
                 now,
-                post.get("is_pinned", False),
+                False,
             ))
             new_count += 1
     
@@ -105,8 +95,9 @@ async def ensure_agent(name: str, agent_data: dict = None) -> None:
     now = datetime.utcnow().isoformat()
     
     if exists:
-        # Update existing agent with fresh data if available
+        # Update existing agent with fresh data
         if agent_data:
+            owner = agent_data.get("owner", {})
             await db.execute("""
                 UPDATE agents SET
                     description = ?,
@@ -120,11 +111,11 @@ async def ensure_agent(name: str, agent_data: dict = None) -> None:
                 WHERE name = ?
             """, (
                 agent_data.get("description", ""),
-                agent_data.get("karma", 0) or 0,
-                agent_data.get("follower_count", 0) or 0,
-                agent_data.get("following_count", 0) or 0,
+                agent_data.get("karma", 0),
+                agent_data.get("follower_count", 0),
+                agent_data.get("following_count", 0),
                 agent_data.get("is_claimed", False),
-                agent_data.get("owner", {}).get("x_handle") if isinstance(agent_data.get("owner"), dict) else None,
+                owner.get("x_handle"),
                 agent_data.get("avatar_url"),
                 now,
                 name,
@@ -134,20 +125,32 @@ async def ensure_agent(name: str, agent_data: dict = None) -> None:
             await db.execute("UPDATE agents SET last_seen_at = ? WHERE name = ?", (now, name))
     else:
         # Insert new agent
-        await db.execute("""
-            INSERT INTO agents (id, name, description, karma, follower_count, following_count, is_claimed, first_seen_at, last_seen_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            agent_data.get("id", name) if agent_data else name,
-            name,
-            agent_data.get("description", "") if agent_data else "",
-            agent_data.get("karma", 0) if agent_data else 0,
-            agent_data.get("follower_count", 0) if agent_data else 0,
-            agent_data.get("following_count", 0) if agent_data else 0,
-            agent_data.get("is_claimed", False) if agent_data else False,
-            now,
-            now,
-        ))
+        if agent_data:
+            await db.execute("""
+                INSERT INTO agents (id, name, description, karma, follower_count, following_count, is_claimed, first_seen_at, last_seen_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                agent_data.get("id"),
+                name,
+                agent_data.get("description", ""),
+                agent_data.get("karma", 0),
+                agent_data.get("follower_count", 0),
+                agent_data.get("following_count", 0),
+                agent_data.get("is_claimed", False),
+                now,
+                now,
+            ))
+        else:
+            # Minimal agent record
+            await db.execute("""
+                INSERT INTO agents (id, name, first_seen_at, last_seen_at)
+                VALUES (?, ?, ?, ?)
+            """, (
+                name,
+                name,
+                now,
+                now,
+            ))
     
     await db.commit()
 
@@ -264,7 +267,7 @@ async def ensure_submolt(name: str, submolt_data: dict = None) -> None:
             await db.execute("""
                 UPDATE submolts SET
                     display_name = ?,
-                    description = ?,x
+                    description = ?,
                     subscriber_count = COALESCE(?, subscriber_count),
                     post_count = COALESCE(?, post_count),
                     avatar_url = ?,
@@ -323,14 +326,13 @@ async def process_submolts(submolts_data: dict) -> int:
     return count
 
 
-async def process_comments(post_id: str, comments_data: dict) -> int:
+async def process_comments(post_id: str, comments: list) -> int:
     """
     Process comments from API response and store in database.
     
     Returns number of new comments inserted.
     """
     db = await get_db()
-    comments = comments_data.get("comments", [])
     if not comments:
         return 0
     
@@ -347,9 +349,9 @@ async def process_comments(post_id: str, comments_data: dict) -> int:
         async with db.execute("SELECT id FROM comments WHERE id = ?", (comment_id,)) as cursor:
             exists = await cursor.fetchone()
         
-        # API uses "author" not "agent"
-        author = comment.get("author") or comment.get("agent") or {}
-        author_name = author.get("name", "") if author else ""
+        # API returns author object
+        author = comment.get("author") or {}
+        author_name = author.get("name", "")
         
         # Calculate score from upvotes/downvotes
         upvotes = comment.get("upvotes", 0) or 0
@@ -367,7 +369,7 @@ async def process_comments(post_id: str, comments_data: dict) -> int:
             """, (
                 comment_id,
                 post_id,
-                author.get("id") if author else None,
+                author.get("id"),
                 author_name,
                 parent_id,
                 comment.get("content", ""),

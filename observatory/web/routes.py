@@ -167,9 +167,19 @@ async def agent_profile(request: Request, name: str):
 async def post_detail(request: Request, post_id: str):
     """Individual post detail page."""
     post = await execute_query("""
-        SELECT id, agent_name, submolt, title, content, score, comment_count, created_at
-        FROM posts
-        WHERE id = ?
+        SELECT
+            p.id,
+            p.agent_id,
+            COALESCE(NULLIF(p.agent_name, ''), a.name) AS agent_name,
+            p.submolt,
+            p.title,
+            p.content,
+            p.score,
+            p.comment_count,
+            p.created_at
+        FROM posts p
+        LEFT JOIN agents a ON p.agent_id = a.id
+        WHERE p.id = ?
     """, (post_id,))
 
     if not post:
@@ -180,10 +190,18 @@ async def post_detail(request: Request, post_id: str):
         }, status_code=404)
 
     comments = await execute_query("""
-        SELECT id, agent_name, parent_id, content, score, created_at
-        FROM comments
-        WHERE post_id = ?
-        ORDER BY created_at DESC
+        SELECT
+            c.id,
+            c.agent_id,
+            COALESCE(NULLIF(c.agent_name, ''), a.name) AS agent_name,
+            c.parent_id,
+            c.content,
+            c.score,
+            c.created_at
+        FROM comments c
+        LEFT JOIN agents a ON c.agent_id = a.id
+        WHERE c.post_id = ?
+        ORDER BY c.created_at DESC
         LIMIT 50
     """, (post_id,))
 
