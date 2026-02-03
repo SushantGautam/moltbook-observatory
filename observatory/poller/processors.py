@@ -251,20 +251,30 @@ async def ensure_submolt(name: str, submolt_data: dict = None) -> None:
     if exists:
         # Update existing submolt with fresh data if available
         if submolt_data:
+            subscriber_count = (
+                submolt_data.get("subscriber_count")
+                if "subscriber_count" in submolt_data
+                else None
+            )
+            post_count = (
+                submolt_data.get("post_count")
+                if "post_count" in submolt_data
+                else None
+            )
             await db.execute("""
                 UPDATE submolts SET
                     display_name = ?,
-                    description = ?,
-                    subscriber_count = ?,
-                    post_count = ?,
+                    description = ?,x
+                    subscriber_count = COALESCE(?, subscriber_count),
+                    post_count = COALESCE(?, post_count),
                     avatar_url = ?,
                     banner_url = ?
                 WHERE name = ?
             """, (
                 submolt_data.get("display_name", name),
                 submolt_data.get("description", ""),
-                submolt_data.get("subscriber_count", 0) or 0,
-                submolt_data.get("post_count", 0) or 0,
+                subscriber_count,
+                post_count,
                 submolt_data.get("avatar_url"),
                 submolt_data.get("banner_url"),
                 name,
